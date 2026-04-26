@@ -158,7 +158,7 @@ Terminal B: cd ~/Plugins/aifcc-workshop        # 教材修正
 
 ## 自動実行スクリプト
 
-[`scripts/env-lint-check.sh`](../scripts/env-lint-check.sh) で 14 項目を機械的にチェック可能:
+[`scripts/env-lint-check.sh`](../scripts/env-lint-check.sh) で 14 項目のうち機械検出しやすい 10 系統を grep ベースで自動チェック可能 (項目 1/2/3/4/5/6/10/11/12/14)。残り 4 項目 (7. next-env.d.ts gitignore、8. dotenv 4 ファイル、9. .env.local commit 禁止、13. heredoc quoted) は目視確認が必要:
 
 ```bash
 ./scripts/env-lint-check.sh path/to/runbook.md
