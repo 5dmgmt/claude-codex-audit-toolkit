@@ -1,20 +1,43 @@
 # 手動監査ランブック テンプレート
 
 > Workshop / SIFT / RUN / CPN の 4 リポで運用したランブックを抽象化したテンプレート。
+>
+> **共通部分**: cwd 分離 / Phase 単位フロー / 必須ゲート / 横断観点。
+> **プロジェクト別に差し替える部分**: 名前 / repo URL / clone path / package manager / dev コマンド / Phase 数 / 母数。下の placeholder 一覧で明示しています。
 
 ## 使い方
 
-1. 本ファイルを `docs/runbooks/{date}-{project}-manual-audit-runbook.md` にコピー
-2. `__PROJECT__` `__SCOPE__` `__SHA__` 等の placeholder を埋める
+1. 本ファイルを `docs/runbooks/{date}-{project-slug}-manual-audit-runbook.md` にコピー
+2. 下記の placeholder を全て埋める
 3. 受講者シミュレーション (terminal A) と教材修正 (terminal B) で並行実行
 4. Phase 単位で finding を `_review-notes.md` に蓄積、合格判定で次 Phase へ
 
+### Placeholder 一覧
+
+| Placeholder | 意味 | 例 |
+|---|---|---|
+| `__PROJECT_NAME__` | プロジェクト表示名 (見出し用) | `Workshop Course 1` |
+| `__PROJECT_SLUG__` | ファイル名 / ディレクトリ用 slug | `workshop-course1` |
+| `__REPO_URL__` | clone 用 URL | `https://github.com/5dmgmt/aifcc-workshop.git` |
+| `__CLONE_DIR__` | 受講者シミュレーション用 clone 先 (絶対パス) | `$HOME/sandbox/workshop-clone` |
+| `__SOURCE_DIR__` | 教材修正用ローカル repo (絶対パス) | `$HOME/Plugins/aifcc-workshop` |
+| `__SCOPE__` | 監査対象範囲 (Phase 範囲 / ファイル群) | `Course 1 全 15 Phase` |
+| `__BASE_SHA__` | 監査開始時の commit SHA (Terminal A の checkout 先) | `abc1234` |
+| `__CURRENT_SHA__` | 現ラウンドで Codex に渡す commit SHA (修正後に更新) | `def5678` |
+| `__VERSION__` | 確定 version 名 | `v3.4` |
+| `__DATE__` | 作業日 (JST) | `2026-04-27` |
+| `__INSTALL_CMD__` | 依存インストールコマンド | `npm install` / `pnpm install` |
+| `__DEV_CMD__` | dev サーバー起動コマンド | `npm run dev` |
+| `__ENV_SETUP_CMD__` | env 準備コマンド | `op inject -i .env.tpl -o .env.local --force` |
+| `__PORT__` | dev サーバー port | `3001` |
+
 ---
 
-# __PROJECT__ 手動監査ランブック
+# __PROJECT_NAME__ 手動監査ランブック
 
 - 検査対象: __SCOPE__
-- commit: __SHA__ (固定)
+- 開始 commit: __BASE_SHA__ (Terminal A の checkout 先)
+- 現ラウンド commit: __CURRENT_SHA__ (Codex 監査の対象 SHA / 修正反映ごとに更新)
 - 確定 version: __VERSION__
 - 作業日: __DATE__
 
@@ -22,21 +45,26 @@
 
 ### 0.1 cwd 分離
 
-- Terminal A (受講者): `~/sandbox/__PROJECT__-clone` (clean clone で受講者目線)
-- Terminal B (教材修正): `~/Plugins/__PROJECT__` (修正反映)
+- Terminal A (受講者): `__CLONE_DIR__` (clean clone で受講者目線)
+- Terminal B (教材修正): `__SOURCE_DIR__` (修正反映)
 
-両方とも絶対パスで `cd` / `git -C` を使う (相対パス禁止)。
+両方とも絶対パス / `$HOME` 展開で `cd` / `git -C` を使う (相対パス・unquoted `~` は禁止)。
 
 ### 0.2 dev 環境準備
 
 ```bash
-# Terminal A (受講者シミュレーション)
-git clone https://github.com/5dmgmt/__PROJECT__.git ~/sandbox/__PROJECT__-clone
-cd ~/sandbox/__PROJECT__-clone
-git checkout __SHA__
-op inject -i .env.tpl -o .env.local --force
-npm install
-PORT=3001 npm run dev
+# Terminal A (受講者シミュレーション) — 初回のみ
+git clone __REPO_URL__ __CLONE_DIR__
+cd __CLONE_DIR__
+git checkout __BASE_SHA__
+__ENV_SETUP_CMD__
+__INSTALL_CMD__
+PORT=__PORT__ __DEV_CMD__
+
+# 各 Phase 修正反映後 (Terminal B でランブック修正 + commit / push 後)
+cd __CLONE_DIR__
+git fetch && git checkout __CURRENT_SHA__
+PORT=__PORT__ __DEV_CMD__
 ```
 
 `.env.local` で `ENABLE_DEV_AUTH_BYPASS=true` を有効化する場合は [`06-dev-bypass-design.md`](../06-dev-bypass-design.md) の 4 原則を満たすこと。
@@ -90,28 +118,49 @@ UI を操作する箇所では、3 viewport で検証:
 各 Phase で以下を実行:
 
 ```
-[受講者目線] Terminal A で Phase X を完走
+[受講者目線] Terminal A で Phase X を完走 (__BASE_SHA__ または前 Phase 確定 SHA)
     ↓
 [finding 抽出] 違和感を _review-notes.md に追記
     ↓
-[教材修正] Terminal B で修正反映 → commit
+[教材修正] Terminal B で修正反映 → commit + push (新 SHA 取得)
     ↓
-[Codex 監査] 修正後 SHA で codex exec 実行
+[新 SHA 同期] Terminal A で git fetch + git checkout __CURRENT_SHA__
     ↓
-[判定] PASS なら次 Phase / FAIL なら再修正
+[Codex 監査] scripts/codex-audit-prompt-gen.sh 経由で codex exec 実行
+    ↓
+[判定] PASS なら次 Phase / FAIL なら再修正 (本 Phase の R2 として再ループ)
 ```
+
+### Codex 監査ステップの実行例
+
+```bash
+cd __SOURCE_DIR__
+
+scripts/codex-audit-prompt-gen.sh \
+  --runbook docs/runbooks/{date}-__PROJECT_SLUG__-manual-audit-runbook.md \
+  --runbook-name "__PROJECT_NAME__ 手動監査ランブック" \
+  --prev-findings "{R1 で反映済の方針 30+ 項目を蓄積}" \
+  > /tmp/codex-prompt.txt
+
+codex exec -s read-only -m gpt-5.5 -c model_reasoning_effort="xhigh" \
+  --output-last-message /tmp/codex-result.md \
+  "$(cat /tmp/codex-prompt.txt)" < /dev/null
+```
+
+`scripts/codex-audit-prompt-gen.sh` は内部で `sed '/^##/d'` でテンプレ冒頭の `##` コメントを除去し、4 placeholder を bash parameter expansion で置換します ([`docs/02-anti-drip-prompt-v2.md`](../02-anti-drip-prompt-v2.md) 参照)。
 
 ## 5. 必須ゲート (Phase 進行条件)
 
 各 Phase の合格条件:
 
-- [ ] P1 残ゼロ (例外不可)
-- [ ] 未承認 P2 残ゼロ (承認済 P2 は `_review-notes.md` の例外承認表に記録)
-- [ ] paste 5 軸全部 ✅
-- [ ] Viewport 3 軸全部 ✅
-- [ ] Codex 監査で当該 Phase に関する finding なし
+- [ ] P1 残ゼロ (例外不可) / 証跡: Codex 監査出力 + `_review-notes.md` の P1 セクション空
+- [ ] 未承認 P2 残ゼロ / 証跡: 承認済 P2 は `_review-notes.md` の例外承認表に承認者・承認日・理由を記録
+- [ ] Codex 監査で **P1 / 未承認 P2 がゼロ** (P3 finding は記録のみで進行可)
+- [ ] paste 検証 (該当する場合): 5 軸検証ログ / canonical baseline スクショ / `diff orig clip` の出力
+- [ ] Viewport 検証 (該当する場合): 3 viewport 各 1 枚以上のスクショ
+- [ ] 承認者: 望月さん / 承認日: YYYY-MM-DD JST
 
-5 つ全部 ✅ で次 Phase 進行。
+5 つ全部 ✅ + 証跡記録で次 Phase 進行。**P3 は記録のみで進行可** (P3 finding 残っていても進行できる)。
 
 ## 6. _review-notes.md フォーマット
 

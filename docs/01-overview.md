@@ -17,7 +17,7 @@
    → 正常収束 (継続) vs scope creep (停止) を識別
 ```
 
-> v1 で推奨していた「7 要素テンプレ (全行 enumerate / mandatory セクション / 3 段階構造 / 全カテゴリ均等深さ含む重圧版)」は Codex CLI 0.125.0 で tool ループに陥ることが判明したため廃止しました。詳細は [`08-known-pitfalls.md`](08-known-pitfalls.md) 参照。
+> 旧 v2 (deprecated) で推奨していた「7 要素重圧テンプレ (全行 enumerate / mandatory セクション / 3 段階構造 / 全カテゴリ均等深さ含む)」は Codex CLI 0.125.0 で tool ループに陥ることが判明したため廃止しました。詳細は [`08-known-pitfalls.md`](08-known-pitfalls.md) 参照。
 
 ## 役割分担
 
@@ -40,24 +40,27 @@
    ↓
 5. Codex で R2 監査 (R1 反映を pre-condition として受け入れる)
    ↓
-6. ラウンドごとの finding 件数を 4. の判定基準 (docs/04) で評価
-   - 単調減少 → 正常収束として継続
-   - 件数停滞 / 矛盾指摘 → scope creep として停止
+6. ラウンドごとの finding 件数 + 4 条件 (下降傾向 / 矛盾指摘なし / 同一 finding 再発なし / 未解決 finding が具体行に紐づく) を docs/04 で評価
+   - 全条件 ✅ → 正常収束として継続
+   - 2 ラウンド連続停滞 / 注記なき矛盾 / 同一 finding 再発 → scope creep として scope cut 検討
    ↓
-7. ALL PASS or 構造的に改善できないレベルで確定
+7. ALL PASS or scope cut として確定
 ```
 
 ## 期待される結果
 
-このツールキットを適用すると、**多くのケースで 1-3 ラウンドで PASS** に到達します。SIFT Phase C のような構造的に複雑なランブックでも 13 ラウンドで安定収束しました。
+このツールキットを適用すると、**短いラウンド数で PASS に到達しやすくなる** という仮説に基づいて運用しています (具体的なラウンド数は対象により大きく異なる)。
 
-逆に、これらを適用しないと:
+明示できる実走実証は次の 2 ケース:
+- SIFT Phase C ランブック: 13 ラウンドで ALL PASS
+- Workshop Course 1 ランブック: 4 ラウンドで scope cut
+
+逆に、これらを適用しないと **数ラウンド以上停滞しうる** 典型症状:
 - 同じ指摘が周回する
 - 過去ラウンドで反映済の修正を Codex が再指摘してくる
 - 矛盾する指摘 (R6 で「A にすべき」→ R8 で「B にすべき」) が出る
-- 5-9 ラウンド回しても収束しない
 
-これらは Codex の問題ではなく、Claude Code 側のプロンプト設計の問題です。
+主因は **Codex 本体の良否ではなく、プロンプト設計・ランブック構造・監査基盤の決定性不足** にあります。
 
 ## 次に読むべき文書
 
@@ -66,13 +69,15 @@
 3. [`04-convergence-patterns.md`](04-convergence-patterns.md) — 収束判定基準
 4. [`05-env-lint-checklist.md`](05-env-lint-checklist.md) — 環境系 lint 14 項目 (事前撲滅)
 
-## 実プロジェクトでの実証
+## 実プロジェクトでの運用と実証
 
-このツールキットは AIFCC (`aifcc.jp`) という日本のコミュニティの 4 つの実プロジェクトで実証されました:
+このツールキットは AIFCC (`aifcc.jp`) コミュニティの 4 つの実プロジェクトで運用しています。**運用経験は 4 プロジェクト、公開できる数値実証は 2 ケース** です:
 
-- **Workshop** (`workshop.aifcc.jp`): プログラミング基礎教材 / Course 1 ランブック / 4 ラウンドで scope cut → v3.4 確定
-- **SIFT** (`sift.aifcc.jp`): AI 仕分けプログラム / Phase C ランブック / 13 ラウンドで ALL PASS
-- **RUN** (`run.aifcc.jp`): 運用フェーズプログラム / Course 1-5 監査
-- **CPN** (`cpn.aifcc.jp`): CCA-F 試験対策 / 受講開始前の最終磨き上げ
+| プロジェクト | 運用範囲 | 公開数値 |
+|---|---|---|
+| Workshop (`workshop.aifcc.jp`) | プログラミング基礎教材 / Course 1 ランブック | **4 ラウンドで scope cut → v3.4 確定 (数値実証あり)** |
+| SIFT (`sift.aifcc.jp`) | AI 仕分けプログラム / Phase C ランブック | **13 ラウンドで ALL PASS (数値実証あり)** |
+| RUN (`run.aifcc.jp`) | 運用フェーズプログラム / Course 1-5 監査 | 適用中 / 数値未公開 |
+| CPN (`cpn.aifcc.jp`) | CCA-F 試験対策 / 受講開始前の最終磨き上げ | 適用中 / 数値未公開 |
 
-`examples/` に各プロジェクトの抜粋を収録しています。
+`examples/` には Workshop 4R / SIFT 13R の抜粋と比較分析を収録しています (RUN / CPN の抜粋は未収録)。
