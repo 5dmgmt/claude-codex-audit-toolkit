@@ -88,8 +88,12 @@ const mockUser: User = {
 
 ```tsx
 // admin 画面 (UI 側、表示防止)
-if (user.isBypass) {
-  return <div>bypass user は admin 機能を使えません</div>;
+// systemRole で正面から弾く (bypass user は systemRole=USER 固定なのでここで弾かれる)
+if (user.systemRole !== "ADMIN") {
+  if (user.isBypass) {
+    return <div>bypass user は admin 機能を使えません</div>;
+  }
+  return <div>権限がありません</div>;
 }
 ```
 
@@ -106,38 +110,84 @@ export async function GET(req: Request) {
 
 UI 側だけだと、bypass user が `/api/admin/users` 等を直接叩いた瞬間に admin データが流れます。**server-side RBAC が真の防衛線**。
 
-### 原則 4. `if (!userId)` 禁止 (`== null` または `=== null` で統一)
+### 原則 4. `if (!userId)` 禁止 (型と比較式を段階で揃える)
 
-`userId` が `0` や `""` のとき、`!userId` は truthy と判定されます。bypass user の id が `0` 始まりだったり、空文字を許容してしまうと意図せず anonymous 扱いになる事故が起きます。
+旧型で `userId` が `0` (number) または `""` (空文字) を取り得る場合、`if (!userId)` は両方を anonymous 扱いに倒します。bypass user の id がこれらの値を持つと意図せず認証スキップが起きる事故になります。
 
-前提として、`userId` の型を `NonEmptyString | null` のように **「空文字は型レベルで除外」** したうえで、null チェックは以下のいずれかで統一します:
+正しいやり方は **型と比較式を段階で揃える** ことです:
 
 ```ts
-// 型定義 (空文字を構造的に排除)
-type UserId = string & { readonly __brand: "UserId" };  // ブランド型
-const isUserId = (s: string): s is UserId => s.length > 0;
+// (1) 型定義 — 空文字を構造的に排除した branded 型
+type UserId = string & { readonly __brand: "UserId" };
+const makeUserId = (s: string): UserId => {
+  if (s.length === 0) throw new Error("UserId cannot be empty");
+  return s as UserId;
+};
 
-// パターン A: == null (null と undefined を一括判定、推奨)
-if (userId == null) {
-  return redirect("/login");
+// User 型と mock user の両方で UserId を使う
+interface User {
+  id: UserId;
+  email: string;
+  systemRole: "USER" | "ADMIN";
+  isBypass: boolean;
+}
+const mockUser: User = {
+  id: makeUserId("dev-bypass-user"),
+  email: "dev@localhost",
+  systemRole: "USER",
+  isBypass: true,
+};
+
+// (2) 入力境界 (cookie / header / DB result 等、型が UserId | null | undefined)
+//     → == null で null と undefined を一括判定 (推奨)
+function rawUserIdFromCookie(req: Request): UserId | null | undefined {
+  const raw = req.cookies.get("userId")?.value;
+  return raw && raw.length > 0 ? makeUserId(raw) : null;
+}
+const userId = rawUserIdFromCookie(req);
+if (userId == null) return redirect("/login");
+
+// (3) 正規化後の内部型 (UserId | null) → === null のみ
+function getUserById(userId: UserId | null): User | null {
+  if (userId === null) return null;
+  // ...
 }
 
-// パターン B: === null + === undefined (明示) — チームで統一する
-if (userId === null || userId === undefined) {
-  return redirect("/login");
-}
-
-// NG (0 / "" を unset と誤判定)
-if (!userId) {
-  return redirect("/login");
-}
+// NG (0 / "" を unset と誤判定 / type-narrowing が効かない)
+if (!userId) return redirect("/login");
 ```
 
-これは bypass 限定の話ではなく **全 codebase に適用** すべきルール。チーム内で `==` 派 / `===` 派のどちらに揃えるかを決めて、混在させないこと。空文字判定が必要な箇所では `if (userId !== null && userId !== "")` のように明示的に書く。
+ポイント:
+- **型レベルで空文字を排除** (`makeUserId` factory を強制) → 実行時に空文字が混入する経路を物理的に塞ぐ
+- **入力境界では `== null`** → `null` と `undefined` を一括で判定。strict TS でも型 narrow が効く
+- **正規化後の内部型では `=== null`** → strict TS で `=== undefined` を書くと no-overlap 警告が出る (型上 undefined を取らないため)
+
+これは bypass 限定の話ではなく **全 codebase に適用** すべきルール。`!userId` の grep がゼロになるまで置換する。
 
 ## 実装パターン (Next.js + 自前 auth)
 
 ```ts
+// lib/auth-guard.ts (起動時 fail-closed)
+export function assertDevAuthBypassNotEnabledInProd(): void {
+  const bypass = process.env.ENABLE_DEV_AUTH_BYPASS === "true";
+  const isProd =
+    process.env.VERCEL_ENV === "production" ||
+    process.env.VERCEL_ENV === "preview" ||
+    process.env.NODE_ENV === "production" ||
+    process.env.CI === "true";
+  if (bypass && isProd) {
+    throw new Error(
+      "FATAL: ENABLE_DEV_AUTH_BYPASS=true on production/preview/CI. Aborting boot."
+    );
+  }
+}
+
+// instrumentation.ts (Next.js 起動時に必ず呼ぶ)
+import { assertDevAuthBypassNotEnabledInProd } from "@/lib/auth-guard";
+export function register() {
+  assertDevAuthBypassNotEnabledInProd();
+}
+
 // lib/auth.ts
 export async function getCurrentUser(): Promise<User | null> {
   // 1. 通常の session lookup
@@ -184,8 +234,15 @@ export async function POST(req: Request) {
 
 1. `.env.local` に `ENABLE_DEV_AUTH_BYPASS=true` を追記
 2. `npm run dev` で起動
-3. ジャーニー: read-only 操作のみテスト (write はスキップ)
-4. テスト完了後、`.env.local` から該当行を削除
+3. read-only journey: 通常の閲覧操作で 200 を確認
+4. **write 防御の negative test (必須)**: 代表的な write endpoint (POST / PUT / PATCH / DELETE) を bypass user で叩き、403 が返ることを assert する。例:
+   ```bash
+   HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' \
+     -X POST http://localhost:3001/api/foo)
+   [ "$HTTP_CODE" = "403" ] || { echo "FAIL: expected 403, got $HTTP_CODE"; exit 1; }
+   ```
+   未定義 method の 405 は別枠。read-only journey をスキップするだけでは不十分で、**bypass user で write が 403 になることを実走で確認** する必要がある (no-op = silent success だと検証にならない)
+5. テスト完了後、`.env.local` から該当行を削除
 ```
 
 ## チェックリスト (証跡付き)

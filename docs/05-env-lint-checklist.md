@@ -97,9 +97,30 @@ next-env.d.ts
 
 ランブックには「`next-env.d.ts` の差分は無視 (Next.js 自動生成)」と明記。
 
-### 8. dotenv 全表記対応 (`.env` / `.env.local` / `.env.production` / `.env.development`)
+### 8. dotenv 全表記対応 (実効値優先順位 + 4 load slot + 6 表記)
 
-[`03-five-decisive-fixes.md` Fix 5](03-five-decisive-fixes.md#fix-5-dotenv-全表記対応--nextjs-4-ファイル全部) 参照。**4 ファイル全部 + 6 表記全部** をランブックに明記。
+実効値の優先順位 (Next.js):
+
+1. `process.env` (実環境変数) — 最優先 (.env ファイルで上書きされない)
+2. `.env.$NODE_ENV.local` — 環境別 local override (gitignore)
+3. `.env.local` — 全環境 local override (gitignore、test 環境では無視)
+4. `.env.$NODE_ENV` — 環境別
+5. `.env` — 全環境 default
+
+`$NODE_ENV` には `development` / `production` / `test` を入れて 4 load slot に展開する (例: `.env.development.local` / `.env.production` 等)。検査時は `process.env` を最優先で確認 + 4 load slot 全て確認。
+
+dotenv 行表記の 6 パターン (検査対象):
+
+| 表記 | 解釈 |
+|---|---|
+| `KEY=value` | 標準 |
+| `KEY="value"` | quote 付き (空白含む値) |
+| `KEY='value'` | 単一 quote (展開しない) |
+| `KEY=` | 空文字 (unset と区別) |
+| `# KEY=value` | コメント (無視) |
+| `export KEY=value` | shell 互換 (Next.js は `export` を strip) |
+
+詳細は [`03-five-decisive-fixes.md` Fix 5](03-five-decisive-fixes.md#fix-5-dotenv-全表記対応--nextjs-全-env-4-ファイル) 参照。
 
 ### 9. .env.local のコミット禁止
 
@@ -169,7 +190,9 @@ Terminal B: cd "$HOME/Plugins/aifcc-workshop"        # 教材修正
 
 ## 自動実行スクリプト
 
-[`scripts/env-lint-check.sh`](../scripts/env-lint-check.sh) は 14 項目のうち機械検出しやすい 10 系統を grep ベースでチェックします。**FAIL 検出 / WARN 抽出 / 未実装 (目視) の 3 種類を項目ごとに区別**:
+[`scripts/env-lint-check.sh`](../scripts/env-lint-check.sh) は 14 項目のうち機械検出しやすい 10 系統を grep ベースでチェックします。**FAIL 検出 / 未実装 (目視) の 2 種類を項目ごとに区別** (現実装には WARN 抽出はありません):
+
+> **限界事項**: grep ベースのため、shell 文脈の完全解析はできません。具体的には: (a) `git diff` の base/target が動く ref かは未 quoted の代表パターンのみ検出、(b) cwd 検出は `cd "./repo"` 等 quoted 相対パスや `git -C "$ANY_VAR"` 等の任意変数を漏らす、(c) #5/#6/#12 の検出は行頭実行コマンド限定 (`NODE_ENV=foo npm run dev` や `HTTP_CODE=$(curl ...)` のような env assignment + command substitution は対応)、(d) #11 の OK 例 `printf '%s' "$VAR" | vercel` は #10 から明示的に除外。完全網羅は目視確認との併用が前提。
 
 | 項目 | scripts/env-lint-check.sh の扱い | 検出ロジック |
 |---|---|---|
@@ -182,8 +205,8 @@ Terminal B: cd "$HOME/Plugins/aifcc-workshop"        # 教材修正
 | #7. next-env.d.ts gitignore | **未実装 (目視)** | リポルートで `git check-ignore -v next-env.d.ts` |
 | #8. dotenv 4 ファイル + 6 表記 | **未実装 (目視)** | docs/05 の 6 表記表で確認 |
 | #9. .env.local tracked 禁止 | **未実装 (目視)** | `git ls-files -- '.env*' \| grep -v '\.env\.tpl$'` が空 |
-| #10. process.env 値の echo | **FAIL 検出** | `echo`/`printf` で `$VAR` / `KEY=$VAR`、`cat .env*`、`printenv`、`env` 単独 |
-| #11. printf vs echo (env 投入) | **FAIL 検出** | `echo "$VAR" \| (vercel\|op\|aws\|gcloud)` |
+| #10. process.env 値の echo | **FAIL 検出** | 行頭コマンドとして `echo "$VAR"` / `echo "KEY=$VAR"` / `cat .env*` / `printenv` / `env` (引数なし)。`printf '%s' "$VAR" \| (vercel\|op\|aws\|gcloud)` (#11 OK 例) は除外 |
+| #11. printf vs echo (env 投入) | **FAIL 検出** | 行頭コマンドとして `echo "$VAR" \| (vercel\|op\|aws\|gcloud)`。`printf '%s'` 形式は OK |
 | #12. codex `-s read-only` | **FAIL 検出** | `codex (exec\|review)` 行に `-s read-only` も `--sandbox read-only` もなし |
 | #13. heredoc quoted | **未実装 (目視)** | `<<EOF` (unquoted) を grep して文脈確認 |
 | #14. cwd 絶対パス | **FAIL 検出** | `cd` / `git -C` 引数が `/` `$HOME` `${HOME}` `$PWD` `${PWD}` 以外 |
@@ -206,7 +229,7 @@ Terminal B: cd "$HOME/Plugins/aifcc-workshop"        # 教材修正
 - [ ] port は明示
 - [ ] curl は `%{http_code}` で status 取得
 - [ ] `.gitignore` に `next-env.d.ts`
-- [ ] dotenv 4 ファイル全部考慮
+- [ ] dotenv: process.env 優先順位 + 4 load slot + 6 表記すべて確認
 - [ ] `.env.local` は gitignore (`.env.tpl` のみ commit)
 - [ ] `process.env` の値を echo しない
 - [ ] `echo` ではなく `printf '%s'` 使用

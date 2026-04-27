@@ -7,7 +7,7 @@
 
 ## 使い方
 
-1. 本ファイルを `docs/runbooks/{date}-{project-slug}-manual-audit-runbook.md` にコピー
+1. 本ファイルを `docs/runbooks/__DATE__-__PROJECT_SLUG__-manual-audit-runbook.md` にコピー
 2. 下記の placeholder を全て埋める
 3. 受講者シミュレーション (terminal A) と教材修正 (terminal B) で並行実行
 4. Phase 単位で finding を `_review-notes.md` に蓄積、合格判定で次 Phase へ
@@ -134,13 +134,34 @@ UI を操作する箇所では、3 viewport で検証:
 ### Codex 監査ステップの実行例
 
 ```bash
+# (a) Terminal B (教材修正) で監査対象 SHA を取得
 cd __SOURCE_DIR__
+TARGET_SHA=$(git rev-parse HEAD)
 
+# (b) Terminal A (受講者シミュレーション) を __CURRENT_SHA__ に同期
+git -C __CLONE_DIR__ fetch
+git -C __CLONE_DIR__ checkout "$TARGET_SHA"
+
+# (c) Terminal A と Terminal B の SHA が一致していることを assert
+test "$(git -C __CLONE_DIR__ rev-parse HEAD)" = "$(git -C __SOURCE_DIR__ rev-parse HEAD)" \
+  || { echo "FAIL: clone と source の SHA が不一致"; exit 1; }
+
+# (d) プロジェクト固有の prompt template を用意 (既定 codex-audit-prompt.txt の {本ランブック固有...} を埋めたもの)
+PROMPT_TEMPLATE_PATH="docs/runbooks/__DATE__-__PROJECT_SLUG__-codex-prompt-template.txt"
+test -f "$PROMPT_TEMPLATE_PATH" \
+  || { echo "FAIL: $PROMPT_TEMPLATE_PATH が無い (プロジェクト固有 5-7 軸を埋めたテンプレを作る)"; exit 1; }
+
+# (e) generator で prompt 生成
 scripts/codex-audit-prompt-gen.sh \
-  --runbook docs/runbooks/{date}-__PROJECT_SLUG__-manual-audit-runbook.md \
+  --runbook docs/runbooks/__DATE__-__PROJECT_SLUG__-manual-audit-runbook.md \
   --runbook-name "__PROJECT_NAME__ 手動監査ランブック" \
   --prev-findings "{R1 で反映済の方針 30+ 項目を蓄積}" \
+  --template "$PROMPT_TEMPLATE_PATH" \
   > /tmp/codex-prompt.txt
+
+# (f) 未解決 placeholder と軸数の preflight
+grep -nE '\{[^}]*\}|__[A-Z_]+__' /tmp/codex-prompt.txt \
+  && { echo "FAIL: prompt に未解決 placeholder が残っている"; exit 1; } || true
 
 codex exec -s read-only -m gpt-5.5 -c model_reasoning_effort="xhigh" \
   --output-last-message /tmp/codex-result.md \
@@ -153,19 +174,19 @@ codex exec -s read-only -m gpt-5.5 -c model_reasoning_effort="xhigh" \
 
 各 Phase の合格条件:
 
-- [ ] P1 残ゼロ (例外不可) / 証跡: Codex 監査出力 + `_review-notes.md` の P1 セクション空
-- [ ] 未承認 P2 残ゼロ / 証跡: 承認済 P2 は `_review-notes.md` の例外承認表に承認者・承認日・理由を記録
-- [ ] Codex 監査で **P1 / 未承認 P2 がゼロ** (P3 finding は記録のみで進行可)
-- [ ] paste 検証 (該当する場合): 5 軸検証ログ / canonical baseline スクショ / `diff orig clip` の出力
-- [ ] Viewport 検証 (該当する場合): 3 viewport 各 1 枚以上のスクショ
-- [ ] 承認者: 望月さん / 承認日: YYYY-MM-DD JST
+- [ ] **P1 残ゼロ** (例外不可) / 証跡: Codex 監査出力 + `_review-notes.md` の P1 セクション空
+- [ ] **未承認 P2 残ゼロ** / 証跡: 承認済 P2 は `_review-notes.md` の例外承認表に ID / 承認者 / 承認日 / 理由を記録
+- [ ] **Codex 監査で P1 / 未承認 P2 がゼロ** / 証跡: `/tmp/codex-result.md` の総合判定行 (P3 finding は記録のみで進行可)
+- [ ] **paste 検証**: 該当する場合は 5 軸検証ログ / canonical baseline スクショ / `diff orig clip` の出力。非該当の場合は `_review-notes.md` に `N/A: 理由` を記録
+- [ ] **Viewport 検証**: 該当する場合は 3 viewport 各 1 枚以上のスクショ。非該当の場合は `_review-notes.md` に `N/A: 理由` を記録
+- [ ] **承認**: ランブック設定 (確定 version 列の責任者) が承認者として承認 / 承認日: YYYY-MM-DD JST
 
-5 つ全部 ✅ + 証跡記録で次 Phase 進行。**P3 は記録のみで進行可** (P3 finding 残っていても進行できる)。
+6 項目全部 ✅ + 証跡記録で次 Phase 進行。**P3 は記録のみで進行可** (P3 finding 残っていても進行できる)。
 
 ## 6. _review-notes.md フォーマット
 
 ```markdown
-# __PROJECT__ Phase X review notes
+# __PROJECT_NAME__ Phase X review notes
 
 ## P1 finding
 - (なし)
@@ -174,12 +195,17 @@ codex exec -s read-only -m gpt-5.5 -c model_reasoning_effort="xhigh" \
 - (なし)
 
 ## P2 finding (承認済 — 例外として確定)
-| ID | 違和感 | 承認理由 | 承認日 |
-|---|---|---|---|
-| F-R3-005 | XXX | scope 外 / 次 version で対応 | 2026-04-26 |
+| ID | 違和感 | 承認理由 | 承認者 | 承認日 |
+|---|---|---|---|---|
+| F-R3-005 | XXX | scope 外 / 次 version で対応 | __APPROVER__ | 2026-04-26 |
 
 ## P3 finding
 - F-R3-001 用語揺れ「phase」「段階」(Phase 7 で統一予定)
+
+## 将来検討事項 (scope cut 時)
+| ID | finding | 次 version 判断 | 転記日 |
+|---|---|---|---|
+| F-R4-002 | XXX | __NEXT_VERSION__ で対応 | 2026-04-26 |
 ```
 
 ## 7. 横断検査 3 観点
@@ -221,9 +247,11 @@ feat(phase10501): paste 検証ロジック追加
 
 ## 関連文書
 
-- [`02-anti-drip-prompt-v2.md`](../02-anti-drip-prompt-v2.md) — 五月雨防止プロンプト v2
-- [`03-five-decisive-fixes.md`](../03-five-decisive-fixes.md) — 5 つの決定的対策
-- [`04-convergence-patterns.md`](../04-convergence-patterns.md) — 収束判定基準
-- [`05-env-lint-checklist.md`](../05-env-lint-checklist.md) — 環境系 lint 14 項目
-- [`06-dev-bypass-design.md`](../06-dev-bypass-design.md) — dev bypass 4 原則
-- [`codex-audit-prompt.txt`](codex-audit-prompt.txt) — Codex 監査プロンプトテンプレート
+> 本テンプレを `docs/runbooks/...` にコピーして使う前提なので、コピー後の相対リンクは以下の形になります:
+
+- [`02-anti-drip-prompt-v2.md`](../../07-runbook-templates/../02-anti-drip-prompt-v2.md) — 五月雨防止プロンプト v2 (コピー後は `../02-anti-drip-prompt-v2.md` ではなく対象 repo 構造に合わせて調整)
+- [`03-five-decisive-fixes.md`](../../07-runbook-templates/../03-five-decisive-fixes.md) — 5 つの決定的対策
+- [`04-convergence-patterns.md`](../../07-runbook-templates/../04-convergence-patterns.md) — 収束判定基準
+- [`05-env-lint-checklist.md`](../../07-runbook-templates/../05-env-lint-checklist.md) — 環境系 lint 14 項目
+- [`06-dev-bypass-design.md`](../../07-runbook-templates/../06-dev-bypass-design.md) — dev bypass 4 原則
+- [`codex-audit-prompt.txt`](../07-runbook-templates/codex-audit-prompt.txt) — Codex 監査プロンプトテンプレート (コピー後は対象 repo の同テンプレを参照)

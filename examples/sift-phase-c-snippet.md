@@ -6,9 +6,9 @@ AIFCC SIFT (AI 仕分けプログラム) の Phase C 監査ランブックを Co
 
 ## ラウンドごとの推移
 
-> R3 = 18 件 と R13 = ALL PASS は Phase C runbook の記録で裏取り可能。R5-R12 の詳細件数は runbook 参照 (本表は概要として扱う)。
+> R3 = 18 件 と R13 = ALL PASS は Phase C runbook (`aifcc-sift/docs/SIFT-AUDIT-PHASE-C-MANUAL-RUNBOOK.md` / 内部記録) で裏取り可能。R5-R12 の詳細件数は同 runbook 参照 (本表は概要として扱う)。公開リポには内部記録は同梱していない。
 
-| Round | 件数概要 | 五月雨防止 v2 | コメント |
+| Round | 件数概要 | 適用済み対策 | コメント |
 |---|---|---|---|
 | R1 | 多数 (詳細件数なし) | 未導入 | baseline |
 | R2 | 多数 (詳細件数なし) | 未導入 | 構造調整 |
@@ -41,24 +41,24 @@ R12 → R13 の直接トリガーは R12 で残っていた P2×2 + P3×1 の反
 - 二重ガード (NODE_ENV + opt-in env + 起動時 fail-closed)
 - read-only 限定 (write は 403 強制 + negative test)
 - systemRole=USER 固定 + server-side RBAC
-- `==`/`===` null 比較を統一
+- `if (!userId)` 禁止 + NonEmptyString 型 + null 判定方式の統一
 
 R13 では他軸 (独立ブロック変数 fail-fast / canonical baseline / BSD sed 互換 / pre-condition 蓄積など) の指摘もすべて反映済で ALL PASS に到達しました。「dev bypass 反映で 5-6 ラウンド削減」は事実から強すぎる主張なので断定しません。
 
 ## 学び
 
 - **「3 ラウンド超で scope cut」はルールではない**。SIFT のように構造的に複雑な対象は 13 ラウンドかかる場合がある
-- 判断基準は **件数の単調減少 + 矛盾指摘なし + 粒度の細かさ**。ラウンド数そのものではない
-- dev bypass のような複雑な機能は **最初から 4 原則を織り込む** 方が、後から作り直すよりラウンド数を 5-6 削減できる
-- R3 までで finding 件数が二桁台に高止まりしていても、v2 + 5 fixes を導入すれば R4 で大幅減できる
+- 判断基準は **直近 2-3 ラウンドの下降傾向 + 矛盾指摘なし + 同一 finding 再発なし + 未解決 finding が具体行 / 節に紐づくこと**。ラウンド数そのものではない
+- dev bypass 4 原則は **最初から織り込む** ほうが、後から作り直すより追加修正ラウンドを避けやすい (削減ラウンド数は対象により異なるため断定しない)
+- R3 までで finding 件数が二桁台に高止まりしていても、**v2 の 4 行ブロック + pre-condition 蓄積リスト** を導入すれば R4 で同一違和感 cascade は大幅減しやすい (5 fixes は別軸の構造欠陥抑制に効く)
 
 ## 比較
 
 | | Workshop Course 1 | SIFT Phase C |
 |---|---|---|
 | 結果 | 4R で scope cut (v3.4 確定) | 13R で ALL PASS |
-| 検査対象 | 15 phase × 16 要素 = 240 母数 | dev bypass 含む構造的システム |
-| 主な減衰要因 | 五月雨防止 v2 + 5 fixes | v2 + 5 fixes + bypass 4 原則 |
+| 検査対象 | 15 phase 構成の教材ランブック | dev bypass 含む構造的システムの監査ランブック |
+| 主な収束要因 | 五月雨防止 v2 + 5 fixes | v2 + 5 fixes + bypass 4 原則 |
 | 停止理由 | 件数停滞 + ランブック膨張限界 | 全 finding 反映完了 |
 
 詳細は [`comparison-4r-vs-13r.md`](comparison-4r-vs-13r.md) 参照。
