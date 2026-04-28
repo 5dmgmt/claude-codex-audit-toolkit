@@ -139,7 +139,7 @@ test -f "$PROMPT_TEMPLATE_PATH" \
 scripts/codex-audit-prompt-gen.sh \
   --runbook docs/runbooks/__DATE__-__PROJECT_SLUG__-manual-audit-runbook.md \
   --runbook-name "__PROJECT_NAME__ 手動監査ランブック" \
-  --prev-findings "{R1 で反映済の方針 30+ 項目を蓄積}" \
+  --prev-findings "R1 反映済: 方針 1 / 方針 2 / ... / 30+ 項目を蓄積" \
   --template "$PROMPT_TEMPLATE_PATH" \
   > /tmp/codex-prompt.txt
 
@@ -180,7 +180,7 @@ codex exec -s read-only -m gpt-5.5 -c model_reasoning_effort="xhigh" \
 ## P2 finding (承認済 — 例外として確定)
 | ID | 違和感 | 承認理由 | 承認者 | 承認日 |
 |---|---|---|---|---|
-| F-R3-005 | XXX | scope 外 / 次 version で対応 | __APPROVER__ | 2026-04-26 |
+| F-R3-005 | XXX | scope 外 / 次 version で対応 | <APPROVER> | 2026-04-26 |
 
 ## P3 finding
 - F-R3-001 用語揺れ「phase」「段階」(Phase 7 で統一予定)
@@ -188,7 +188,7 @@ codex exec -s read-only -m gpt-5.5 -c model_reasoning_effort="xhigh" \
 ## 将来検討事項 (scope cut 時)
 | ID | finding | 次 version 判断 | 転記日 |
 |---|---|---|---|
-| F-R4-002 | XXX | __NEXT_VERSION__ で対応 | 2026-04-26 |
+| F-R4-002 | XXX | <NEXT_VERSION> で対応 | 2026-04-26 |
 ```
 
 ## 7. 横断検査 3 観点
@@ -232,11 +232,13 @@ feat(phase10501): paste 検証ロジック追加
 
 > 本テンプレを `docs/runbooks/...` にコピーして使う前提なので、コピー後の相対リンクは以下の形になります:
 
-- [`02-anti-drip-prompt-v2.md`](../../07-runbook-templates/../02-anti-drip-prompt-v2.md) — 五月雨防止プロンプト v2 (コピー後は `../02-anti-drip-prompt-v2.md` ではなく対象 repo 構造に合わせて調整)
-- [`03-five-decisive-fixes.md`](../../07-runbook-templates/../03-five-decisive-fixes.md) — 5 つの決定的対策
-- [`04-convergence-patterns.md`](../../07-runbook-templates/../04-convergence-patterns.md) — 収束判定基準
-- [`05-env-lint-checklist.md`](../../07-runbook-templates/../05-env-lint-checklist.md) — 環境系 lint 14 項目
-- [`06-dev-bypass-design.md`](../../07-runbook-templates/../06-dev-bypass-design.md) — dev bypass 4 原則
+> 本テンプレートが `docs/07-runbook-templates/manual-audit-runbook.md` 直下に置かれている前提で書いています。コピー後は対象 repo 構造に合わせて相対パスを調整してください。
+
+- [`../02-anti-drip-prompt-v2.md`](../02-anti-drip-prompt-v2.md) — 五月雨防止プロンプト v2
+- [`../03-five-decisive-fixes.md`](../03-five-decisive-fixes.md) — 6 つの決定的対策 (コア 4 + adapter 2)
+- [`../04-convergence-patterns.md`](../04-convergence-patterns.md) — 収束判定基準
+- [`../05-env-lint-checklist.md`](../05-env-lint-checklist.md) — 環境系 lint 14 項目
+- [`../06-dev-bypass-design.md`](../06-dev-bypass-design.md) — dev bypass 4 原則 (Adapter: Next.js + 自前 auth)
 - [`codex-audit-prompt.txt`](../07-runbook-templates/codex-audit-prompt.txt) — Codex 監査プロンプトテンプレート (コピー後は対象 repo の同テンプレを参照)
 
 ---

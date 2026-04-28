@@ -55,7 +55,7 @@
 
 これらが累積して session の budget / context を消費し、最終 synthesis 前に session が exit すると推測されます。**ただし試行 6 は reasoning effort と prompt の両方を変えて成功しているため、この 4 要素 + 派生 1 件のうちどれが必須要因かは因果分離できていません**。確実なのは「現 v2 (4 要素削除 + 1 ファイル原則) で同じ Codex 環境が動作する」という観察結果のみです。
 
-## 廃止した v1 要素
+## 廃止した旧 v2 (deprecated) 要素
 
 以下の 4 要素が複合すると Codex が tool ループに陥ることが分かりました。**v2 では全面削除**:
 
@@ -102,7 +102,9 @@
 
 - ✅ **五月雨防止 4 行ブロック** (1 違和感 = 1 件 / 矛盾指摘 cascade 防止)
 - ✅ **過去ラウンドの反映済リストを pre-condition として 30+ 項目蓄積** (これが本物の cascade 防止仕掛け)
-- ✅ **監査対象を 1 ファイルに絞る** (Codex tool ループ防止の最重要 / primary target は 1 ファイル、関連参照は任意・有界・明示された場合のみ Read)
+- ✅ **監査対象の単位は系統で異なる** (Codex tool ループ防止の最重要):
+  - **ランブック監査**: 1 ラウンド = 1 ファイル / primary target は 1 ファイル、関連参照は任意・有界・明示された場合のみ Read
+  - **コードベース監査**: 1 ラウンド = 1 commit (リポ全体 / 複数ファイル) + AUDIT_RUNBOOK.md を毎周 Codex に渡す運用 (詳細: [`docs/07-runbook-templates/code-audit-runbook.md`](07-runbook-templates/code-audit-runbook.md))
 - ✅ **監査軸 5-7 個、各軸 1-2 行のシンプル説明**
 - ✅ **出力形式 5 行構造** (`[Px][§/行]タイトル/詳細/修正案 + 総合判定 1 行`)
 

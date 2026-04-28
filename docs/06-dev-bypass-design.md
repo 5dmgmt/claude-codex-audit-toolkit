@@ -80,8 +80,9 @@ export async function POST(req: Request) {
 bypass user の role を **常に最低権限の `USER`** に固定します。**UI 側で隠すだけでなく、admin 系の loader / route handler / server action / API endpoint で server-side に RBAC を必須化** します — UI を隠しても、API を直接叩けばデータが漏れます:
 
 ```ts
+// id は branded UserId factory 経由で生成 (原則 4 と整合)
 const mockUser: User = {
-  id: "dev-bypass-user",
+  id: makeUserId("dev-bypass-user"),
   email: "dev@localhost",
   systemRole: "USER", // 必ず最低権限
   isBypass: true,
@@ -204,7 +205,7 @@ export async function getCurrentUser(): Promise<User | null> {
     process.env.ENABLE_DEV_AUTH_BYPASS === "true"
   ) {
     return {
-      id: "dev-bypass-user",
+      id: makeUserId("dev-bypass-user"),  // branded UserId factory (原則 4)
       email: "dev@localhost",
       systemRole: "USER",
       isBypass: true,

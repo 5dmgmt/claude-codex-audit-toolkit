@@ -89,7 +89,7 @@ Workshop は R3 → R4 で同数停滞、SIFT は R4 以降の低位推移だけ
 
 件数推移だけでなく、現 v2 の収束判定 4 条件を複合で見ます:
 
-- 直近 2-3 ラウンドの総件数が下降傾向
+- 直近 2-3 ラウンドで **同一ファイル / 同一監査軸換算** の件数が下降傾向 (範囲拡大時は旧範囲と新規範囲を分離計測 / [`../docs/04 §前提`](../docs/04-convergence-patterns.md) + [`self-audit-history.md`](self-audit-history.md))
 - 矛盾指摘なし
 - 同一 finding の再発なし
 - 未解決 finding が具体行に紐づく

@@ -133,8 +133,10 @@ codex exec -s read-only -m gpt-5.5 -c model_reasoning_effort="xhigh" \
 
 | 状態 | 機械的に判定できる条件 | 対応 |
 |---|---|---|
-| 正常収束 | 直近 2-3 ラウンドの総件数が下降傾向 / 矛盾指摘なし / 同一 finding の再発なし / 未解決 finding が具体行に紐づく | 継続 (上限なし) |
-| scope creep | 2 ラウンド連続停滞 / 前回と矛盾する指摘 / 角度を変えた言い換え再発 | scope cut 検討 |
+| 正常収束 | 直近 2-3 ラウンドで **同一ファイル / 同一監査軸換算** の件数が下降傾向 / 矛盾指摘なし / 同一 finding の再発なし / 未解決 finding が具体行に紐づく | 継続 (上限なし) |
+| scope creep | 同一範囲で 2 ラウンド連続停滞 / 前回と矛盾する指摘 / 角度を変えた言い換え再発 / 抽象的 finding 増加 | scope cut 検討 |
+
+> 範囲拡大時 (新規ファイル追加 / 監査軸の高度化) は **総件数だけで判断しない**。旧範囲の推移と新規範囲の初回件数を分けて評価。詳細: [`docs/04-convergence-patterns.md`](docs/04-convergence-patterns.md) §前提 + [`examples/self-audit-history.md`](examples/self-audit-history.md)
 
 詳細: [`docs/04-convergence-patterns.md`](docs/04-convergence-patterns.md)
 

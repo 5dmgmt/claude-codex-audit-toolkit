@@ -18,8 +18,11 @@
 | `__PROJECT_NAME__` | プロジェクト表示名 | `video-subtitler` |
 | `__REPO_PATH__` | リポ絶対パス | `$HOME/sandbox/video-subtitler` |
 | `__SCOPE__` | 監査対象の scope (パイプライン / module / 全体等) | `Whisper + ffmpeg 字幕生成パイプライン全体` |
-| `__INITIAL_SHA__` | 監査開始時の commit SHA | `3c4d5d7` |
-| `__MODEL__` | 使用 Codex model | `gpt-5.4` (大規模コード監査では gpt-5.5 xhigh は 19 分超 hang リスクあり) |
+| `__INITIAL_SHA__` | 監査開始時の commit SHA | `3c4d5d7c1234567890abcdef1234567890abcdef` (full SHA) |
+| `__MODEL__` | 使用 Codex model | `gpt-5.4` (大規模コード監査では gpt-5.5 xhigh は video-subtitler 1 ケースで 19 分超 hang を観察 / 根本原因未特定 / 他コードベースでは要検証) |
+| `__RUNBOOK_PATH__` | 本 AUDIT_RUNBOOK.md のリポ内相対パス | `AUDIT_RUNBOOK.md` or `docs/AUDIT_RUNBOOK.md` |
+| `__ROUND__` | 現在の周番号 | `1` / `2` / ... |
+| `__OUTPUT_PATH__` | Codex 出力 (`--output-last-message`) の保存先 | `/tmp/codex-result-1.md` |
 
 ---
 
@@ -82,27 +85,35 @@
 # (a) リポルートに移動
 cd __REPO_PATH__
 
-# (b) commit 状態確認 (dirty なら commit してから監査)
-git status --porcelain
+# (b) commit pin + dirty fail-fast + snapshot 確認 (Fix 1 完全手順 / README Quick Start と整合)
 TARGET_SHA=$(git rev-parse HEAD)
+STATUS_OUT=$(git status --porcelain=v1 --untracked-files=all 2>&1)
+[ -z "$STATUS_OUT" ] || { echo "FAIL: dirty tree"; echo "$STATUS_OUT"; exit 1; }
+git cat-file -e "$TARGET_SHA:__RUNBOOK_PATH__" \
+  || { echo "FAIL: __RUNBOOK_PATH__ not in $TARGET_SHA"; exit 1; }
 
-# (c) AUDIT_RUNBOOK.md (本ファイル) を Codex に渡す
+# (c) R2 以降は五月雨防止 4 行ブロック + 過去反映済リスト 30+ 項目を AUDIT_RUNBOOK.md 内
+#     (or 別ファイル) で蓄積し、毎周 Codex に渡す (docs/02 §要素 2 / README Quick Start 2)
+
+# (d) AUDIT_RUNBOOK.md (本ファイル) を Codex に渡す + 対象 SHA を明記
 codex exec -s read-only -m __MODEL__ -c model_reasoning_effort="xhigh" \
   --skip-git-repo-check \
-  --output-last-message /tmp/codex-result-N.md \
-  "AUDIT_RUNBOOK.md を読み、Nth ラウンド監査。Critical/High/Medium/Low に分類。Critical/High が無ければ明示。" \
+  --output-last-message __OUTPUT_PATH__ \
+  "AUDIT_RUNBOOK.md を読み、commit $TARGET_SHA に対する __ROUND__ 周目監査。Critical/High/Medium/Low に分類。Critical/High が無ければ明示。" \
   < /dev/null
 
-# (d) 結果を tail で確認 (出力 100KB+ になることもある)
-tail -200 /tmp/codex-result-N.md
+# (e) 結果を全件抽出 (tail だけでは 100KB+ の中盤を落とす)
+rg -n 'Critical|High|Medium|Low|総合判定' __OUTPUT_PATH__ || true
+tail -200 __OUTPUT_PATH__  # quick view 用 (正本は __OUTPUT_PATH__)
 ```
 
 ### Codex 監査運用上の注意
 
 - `--skip-git-repo-check` 必須 (git 状態で Codex の挙動が変わるのを避ける)
-- 大規模コード監査では `gpt-5.4 xhigh` 推奨 (`gpt-5.5 xhigh` は 19 分以上 hang する事例あり / `gpt-5.4 xhigh` は実績 4-5 分)
-- 出力 138KB 超になる場合があるので tail で取得
+- 大規模コード監査では `gpt-5.4 xhigh` 推奨 (`gpt-5.5 xhigh` は **video-subtitler 1 ケースで 19 分以上 hang を観察 / 根本原因未特定 / 他コードベースでは要検証**)
+- 出力 100KB+ になる場合があるので **`__OUTPUT_PATH__` 保存ファイルが正本**、tail は quick view 用
 - AUDIT_RUNBOOK.md (本ファイル) を毎周 Codex に渡すことで、ラウンド間の文脈を引き継ぐ
+- **R2 以降は五月雨防止 4 行ブロック + 過去ラウンド反映済リスト 30+ 項目** を必ず冒頭蓄積 (`docs/02-anti-drip-prompt-v2.md` §要素 2)
 
 ## Step 2. 修正反映 → commit (1 周ごとに push しない)
 
@@ -118,8 +129,10 @@ git commit -m "fix(audit-NthRound): H{X}/M{Y}/L{Z} 反映"
 
 [`../04-convergence-patterns.md`](../04-convergence-patterns.md) の判定基準で:
 
-- **正常収束** (件数下降傾向 + 矛盾なし + 同一 finding 再発なし + 具体行紐づき): 継続
-- **scope creep** (2 周連続停滞 / 注記なき矛盾 / 抽象的 finding 増加): scope cut 検討、残課題を `_review-notes.md` の「将来検討事項」に転記
+- **正常収束** (**同一 scope / 同一監査軸換算で** 件数下降傾向 + 矛盾なし + 同一 finding 再発なし + 具体行紐づき): 継続
+- **scope creep** (同一 scope で 2 周連続停滞 / 注記なき矛盾 / 抽象的 finding 増加): scope cut 検討、残課題を `_review-notes.md` の「将来検討事項」に転記
+
+> 範囲拡大 (新規ファイル追加 / 監査軸の高度化) があった場合は **総件数だけで判断しない**。旧範囲推移と新規範囲初回件数を分けて評価 ([`examples/self-audit-history.md`](../../examples/self-audit-history.md))。
 
 ## ラウンド推移記録
 

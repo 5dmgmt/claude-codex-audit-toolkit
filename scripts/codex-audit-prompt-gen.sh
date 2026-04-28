@@ -48,7 +48,7 @@ done
 [ -f "$TEMPLATE_PATH" ] || { echo "Template not found: $TEMPLATE_PATH" >&2; exit 1; }
 
 # --- commit SHA を確実に取得 ---
-TARGET_SHA=$(git rev-parse --short HEAD 2>/dev/null) || {
+TARGET_SHA=$(git rev-parse HEAD 2>/dev/null) || {
   echo "Not a git repository or HEAD unset" >&2
   exit 1
 }

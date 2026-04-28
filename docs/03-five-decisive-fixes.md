@@ -9,7 +9,7 @@
 | Fix | 階層 | 適用範囲 | 出典実証 |
 |---|---|---|---|
 | Fix 1: commit pin + dirty check + snapshot 確認 | **コア (中立)** | 全プロジェクト | SIFT 13R / Workshop 4R / video-subtitler 5R 全部 |
-| Fix 2: canonical baseline (DOM API 選定) | **コア (中立)** | Web UI / DOM 検証を含むプロジェクト | SIFT 13R (paste 動線検証) |
+| Fix 2: canonical baseline (DOM API 選定) | **adapter (Web UI / DOM 検証)** | Web UI / DOM 検証を含むプロジェクトのみ (CLI ツール / 動画 pipeline では非該当) | SIFT 13R (paste 動線検証) |
 | Fix 3: 独立ブロック変数 fail-fast | **コア (中立)** | 全プロジェクト (shell スニペット品質) | SIFT 13R / Workshop 4R 共通 |
 | Fix 4: BSD sed / grep 互換 | **コア (中立)** | macOS + Linux 両対応の shell スニペットを書く全プロジェクト | SIFT 13R で確立 |
 | Fix 5: dotenv 全表記対応 + load slot | **adapter (Next.js 固有)** | Next.js プロジェクト | SIFT / Workshop は Next.js 16 |
@@ -65,7 +65,7 @@ codex exec -s read-only -m gpt-5.5 -c model_reasoning_effort="xhigh" \
 
 ラウンド間でランブック修正が入ったら、必ず新しい SHA で `__SHA__` 置換してから出す。**Codex が見るのは固定 commit のスナップショットのみ**。
 
-> 補足: `scripts/codex-audit-prompt-gen.sh` は `git rev-parse --short HEAD` (短縮 SHA) を使っているが、監査ログとしての堅牢さを優先するなら呼び出し側で full SHA を export してから generator を呼ぶ運用も可能 (生成 prompt 内の `__SHA__` は短縮形のままだが、ランブック側で full SHA を別途記録)。
+> 注: `scripts/codex-audit-prompt-gen.sh` は `git rev-parse HEAD` (full SHA) を内部で使うように 12e7e95 で修正済。生成 prompt 内の `__SHA__` も full SHA に置換される。
 
 ## Fix 2. canonical baseline (DOM API の選定統一)
 
