@@ -1,6 +1,6 @@
 # 01. Claude Code + Codex 監査ループの全体像
 
-> **Version**: v0.5-nextjs-supabase — **Next.js + Supabase 特化**。5dmgmt 内部で 3 ケース実証 (Workshop 4R / SIFT 13R / video-subtitler 5R)。AIFCC Workshop 教材組込み準備中、5dmgmt 系列以外の Next.js + Supabase 事例を募集中 ([CONTRIBUTING.md](../CONTRIBUTING.md))。
+> **Version**: v0.5-nextjs-supabase — **Next.js + Supabase 特化**。5dmgmt 内部で 3 ケース実証 (Workshop 4R / SIFT 13R / video-subtitler 5R)。AIFCC Workshop Course 1 PART 105 / Phase 10503 に任意オプションとして組込み済 (本格教材化は v1.0 予定)、5dmgmt 系列以外の Next.js + Supabase 事例を募集中 ([CONTRIBUTING.md](../CONTRIBUTING.md))。
 
 ## 想定読者
 
