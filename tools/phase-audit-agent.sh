@@ -53,7 +53,38 @@ fi
 [ -f "$RUNBOOK_FILE" ] || { printf 'FAIL: RUNBOOK_FILE not found: %s (作成してから本スクリプトを起動)\n' "$RUNBOOK_FILE"; exit 1; }
 
 command -v codex >/dev/null || { printf 'FAIL: codex CLI not found (npm install -g @openai/codex)\n'; exit 1; }
-command -v timeout >/dev/null || { printf 'FAIL: timeout command not found (brew install coreutils for gtimeout)\n'; exit 1; }
+
+# portable timeout (Mac は GNU timeout 不在 / gtimeout が brew にあれば優先)
+TIMEOUT_CMD=""
+if command -v gtimeout >/dev/null; then
+  TIMEOUT_CMD="gtimeout"
+elif command -v timeout >/dev/null; then
+  TIMEOUT_CMD="timeout"
+fi
+
+# bash 内蔵 fallback timeout (TIMEOUT_CMD が空のときのみ使う)
+run_with_timeout() {
+  local secs="$1"; shift
+  if [ -n "$TIMEOUT_CMD" ]; then
+    "$TIMEOUT_CMD" "$secs" "$@"
+    return $?
+  fi
+  # fallback: bash background + watchdog kill
+  "$@" &
+  local child_pid=$!
+  (
+    sleep "$secs"
+    kill -TERM "$child_pid" 2>/dev/null
+    sleep 5
+    kill -KILL "$child_pid" 2>/dev/null
+  ) &
+  local watchdog_pid=$!
+  wait "$child_pid" 2>/dev/null
+  local child_exit=$?
+  kill "$watchdog_pid" 2>/dev/null
+  wait "$watchdog_pid" 2>/dev/null
+  return $child_exit
+}
 
 TARGET_SHA=$(git rev-parse HEAD)
 
@@ -88,7 +119,7 @@ while [ "$round" -le "$MAX_ROUNDS" ]; do
 
   PROMPT="${RUNBOOK_FILE} を読み、commit ${TARGET_SHA} の snapshot として Phase ${PHASE_ID} (file: ${PHASE_FILE}) の R${round} 監査。Fix 6 横断 6 観点 ULTRATHINK を Next.js + Supabase 文脈で適用。Critical/High/Medium/Low に分類。Critical/High が無ければ明示。"
 
-  if ! timeout "$TIMEOUT_SEC" codex exec -s read-only -m "$MODEL" -c "model_reasoning_effort=$REASONING" \
+  if ! run_with_timeout "$TIMEOUT_SEC" codex exec -s read-only -m "$MODEL" -c "model_reasoning_effort=$REASONING" \
     --skip-git-repo-check \
     --output-last-message "$ROUND_OUTPUT" \
     "$PROMPT" < /dev/null > "$ROUND_LOG" 2>&1; then
