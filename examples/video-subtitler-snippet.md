@@ -1,8 +1,10 @@
 # video-subtitler — 5 周で収束した **コードベース監査** の例
 
+> **位置づけ**: 本リポは v0.5 から Next.js + Supabase 特化ですが、本ケースは **Next.js + Supabase 範囲外** (Whisper + ffmpeg pipeline / Python + shell) です。コードベース監査の運用パターン (Fix 6 横断 6 観点 ULTRATHINK の必要性 / 1 commit + AUDIT_RUNBOOK.md / `--skip-git-repo-check` / 大規模出力時の `__OUTPUT_PATH__` 取り扱い) は Next.js + Supabase の実装監査でも転用可能なため、応用例として残置しています。
+
 ## 概要
 
-`5dmgmt/video-subtitler` (Whisper + ffmpeg を使った字幕生成パイプライン) を Codex で 5 周監査し、High/Medium/Low 件数が下降して収束したケース。本ツールキットの 2 つの対照ケース (Workshop 4R / SIFT 13R) はどちらも **ランブック監査** だったが、本ケースは **コードベース監査** で運用パターンが異なる。
+`5dmgmt/video-subtitler` (Whisper + ffmpeg を使った字幕生成パイプライン) を Codex で 5 周監査し、High/Medium/Low 件数が下降して収束したケース。本ツールキットの 2 つの対照ケース (Workshop 4R / SIFT 13R) はどちらも **Next.js + Supabase ランブック監査** だったが、本ケースは **Next.js + Supabase 範囲外のコードベース監査** で運用パターンが異なる。
 
 ## ラウンドごとの推移
 

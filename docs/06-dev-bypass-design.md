@@ -1,6 +1,10 @@
-# 06. dev / local 環境 auth bypass の 4 原則 — Adapter: Next.js + 自前 auth
+# 06. dev / local 環境 auth bypass の 4 原則 — Pattern: Next.js + 自前 auth
 
-> **Adapter 階層**: 本ドキュメントは **Next.js + 自前 auth (NextAuth / Supabase Auth / Auth0 等の専用ライブラリを使わない実装)** を前提とした実装パターンです。Rails / Django / Go 等は別 adapter として整備すべき領域 ([CONTRIBUTING.md](../CONTRIBUTING.md) 参照)。**4 原則の概念 (二重ガード / read-only 限定 / 最低権限 + RBAC / null 比較統一)** はフレームワーク中立で、実装パターンが Next.js 固有です。
+> **適用範囲**: 本ドキュメントは **Next.js + 自前 auth** (専用ライブラリを使わず session / cookie / JWT を自分で扱う実装) を前提とした実装パターンです。**4 原則の概念 (二重ガード / read-only 限定 / 最低権限 + RBAC / null 比較統一)** は Next.js 内の他 auth pattern (Supabase Auth / NextAuth / Auth0 / Clerk 等) でも転用可能ですが、session check の差 (cookie / JWT / Supabase RLS との連携) は別 pattern として書き起こす必要があります:
+>
+> - **Supabase Auth + RLS**: `@supabase/auth-helpers` / `createServerClient()` 系の session check + DB 側 RLS policy で行レベル防御。bypass 時にも RLS が dev user の id でフィルタできる構造が必要。Pattern 整備は v1.0 (`docs/06-supabase-auth.md` 新設予定)。
+> - **NextAuth / Auth0 / Clerk**: 各ライブラリの session API + middleware を経由。bypass の差し込み点が異なる。Pattern 整備は外部事例待ち。
+> - Rails / Django / Go 等は v0.5 段階では scope 外 ([CONTRIBUTING.md](../CONTRIBUTING.md) §3)。
 
 ## 位置づけ
 

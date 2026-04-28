@@ -6,19 +6,19 @@ Codex に出す前に Claude Code 側で **機械的に撲滅できる defect** 
 
 SIFT Phase C 13 ラウンド事案で抽出した、**環境依存・実行系の 14 項目**:
 
-### 適用範囲
+### 適用範囲 (Next.js + Supabase 前提)
 
 | 項目 | 階層 | 範囲 |
 |---|---|---|
-| #1 BSD sed/grep / #2 sed -i.bak / #3 zsh brace / #4 git diff SHA pin / #14 cwd 絶対パス | **コア (中立)** | macOS + Linux 両対応の shell スニペットを書く全プロジェクト |
-| #10 secret echo / #11 printf vs echo | **コア (中立)** | 全プロジェクト (秘密値の扱い) |
-| #13 heredoc quoted | **コア (中立)** | shell スニペット品質 |
-| #5 PORT pin (npm run dev) | **adapter (Node.js 系)** | Node.js / npm 系プロジェクト |
-| #6 curl status code | **コア (中立)** | curl を使う全プロジェクト |
-| #12 codex `-s read-only` | **コア (Codex CLI 固有)** | 本ツールキット利用者全員 |
-| #7 next-env.d.ts gitignore / #8 dotenv 4 load slot + 6 表記 / #9 .env.local commit 禁止 | **adapter (Next.js 固有)** | Next.js プロジェクト |
+| #1 BSD sed/grep / #2 sed -i.bak / #3 zsh brace / #4 git diff SHA pin / #14 cwd 絶対パス | **共通 (Next.js + Supabase 全体)** | macOS + Linux 両対応の shell スニペットを書く全プロジェクト |
+| #10 secret echo / #11 printf vs echo | **共通** | 秘密値の扱い (Supabase の sb_publishable_* / sb_secret_* もここで保護) |
+| #13 heredoc quoted | **共通** | shell スニペット品質 |
+| #5 PORT pin (npm run dev) | **パターン (Next.js は npm 系なので必須)** | Next.js プロジェクト全部 |
+| #6 curl status code | **共通** | curl を使う全プロジェクト |
+| #12 codex `-s read-only` | **共通 (Codex CLI 固有)** | 本ツールキット利用者全員 |
+| #7 next-env.d.ts gitignore / #8 dotenv 4 load slot + 6 表記 / #9 .env.local commit 禁止 | **パターン (Next.js 固有)** | Next.js プロジェクト全部 |
 
-Rails / Django / Go 等の adapter を別途定義する余地があります ([CONTRIBUTING.md](../CONTRIBUTING.md) 参照)。
+> Supabase 固有の lint 項目 (sb_publishable_* / sb_secret_* の使い分け検出 / SUPABASE_URL の trailing whitespace 検出 / RLS policy 静的検査の指針) は v1.0 で追加予定。現時点では #10/#11 の秘密値漏洩検出と #8 の dotenv 表記検査でカバー。
 
 ## 14 項目
 

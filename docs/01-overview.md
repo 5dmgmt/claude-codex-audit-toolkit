@@ -1,12 +1,14 @@
 # 01. Claude Code + Codex 監査ループの全体像
 
-> **Version**: v0.4-beta — 5dmgmt 内部で 3 ケース実証済 (Workshop 4R / SIFT 13R / video-subtitler 5R)。コア (フレームワーク中立) と adapter (Next.js / Code review 等) の境界を再編成した直後で、5dmgmt 系列以外の事例を募集中 ([CONTRIBUTING.md](../CONTRIBUTING.md))。
+> **Version**: v0.5-nextjs-supabase — **Next.js + Supabase 特化**。5dmgmt 内部で 3 ケース実証 (Workshop 4R / SIFT 13R / video-subtitler 5R)。AIFCC Workshop 教材組込み準備中、5dmgmt 系列以外の Next.js + Supabase 事例を募集中 ([CONTRIBUTING.md](../CONTRIBUTING.md))。
 
 ## 想定読者
 
-- Claude Code (Anthropic) でランブック・教材・ドキュメントを書いている人
-- 書いた成果物を OpenAI Codex CLI (`codex exec` / `codex review`) で品質監査したい人
+- **Next.js + Supabase プロジェクト** を Claude Code (Anthropic) で書いている人
+- 書いた成果物 (ランブック・教材・実装コード) を OpenAI Codex CLI (`codex exec` / `codex review`) で品質監査したい人
 - 「ラウンドごとに finding が小出しに出続けて終わらない」「3 ラウンド超えるべきか scope cut すべきか判断できない」と悩んでいる人
+
+> Rails / Django / Go / Python pipeline 等は v0.5 段階では scope 外。fork して各自運用を推奨します ([CONTRIBUTING.md](../CONTRIBUTING.md) §3 対象外 framework)。
 
 ## 本ツールキットの 3 つの柱
 
@@ -30,17 +32,19 @@
 | ランブック (静的文書 / 教材 / 仕様書) を Codex で監査したい | docs/02 / docs/03 Fix 1, 3, 4 / docs/04 / [docs/07-runbook-templates/manual-audit-runbook.md](07-runbook-templates/manual-audit-runbook.md) | docs/05 コア中立項目 (#1/#2/#3/#4/#6/#10/#11/#13/#14) + #12 (Codex CLI 利用者全員) |
 | コードベース (Whisper pipeline / アプリ実装等) を Codex で監査したい | docs/02 / docs/03 Fix 1, 3, 4, **6** / docs/04 / [docs/07-runbook-templates/code-audit-runbook.md](07-runbook-templates/code-audit-runbook.md) | docs/05 同上 + Web UI 検証あれば docs/03 Fix 2 |
 | Next.js プロジェクトの実装監査 | 上記コードベース監査 | docs/03 Fix 5 (Next.js dotenv adapter) + docs/05 #5 (Node.js adapter) + #7/#8/#9 (Next.js adapter) + docs/06 (Next.js + 自前 auth adapter) |
-| Python / Go / Rails / 他フレームワーク pipeline | 上記コードベース監査 | docs/05 コア中立 + #12 のみ (#5 は Node.js 固有 / #7-9 は Next.js 固有 / docs/06 は Next.js + 自前 auth 固有 → 他 framework は adapter 未整備、[CONTRIBUTING.md](../CONTRIBUTING.md) で募集中) |
+| Next.js + 自前 auth プロジェクト | 上記コードベース監査 | docs/06 (dev bypass 4 原則) |
+| Next.js + Supabase Auth + RLS プロジェクト | 上記コードベース監査 | docs/06 の自前 auth 4 原則の一部は転用可。Supabase Auth + RLS adapter は v1.0 で `docs/06-supabase-auth.md` 新設予定 (現状は自前 auth として読み替え + Supabase Auth helpers の session check + RLS policy 検査を別途) |
 | ツールキット内部仕組みを理解したい | docs/01-08 全部 | examples/ 全部 |
 
-**コア (フレームワーク中立 + Codex CLI 利用者全員)**:
+**共通 (Next.js + Supabase 全体 / Codex CLI 利用者全員)**:
 - docs/02 (五月雨防止) / docs/03 Fix 1, 3, 4, 6 / docs/04 (収束判定) / docs/07-runbook-templates/ テンプレ自体
-- docs/05 コア中立 = #1/#2/#3/#4/#6/#10/#11/#13/#14 / コア (Codex CLI 固有) = #12
+- docs/05 共通 = #1/#2/#3/#4/#6/#10/#11/#13/#14 / 共通 (Codex CLI 固有) = #12
 
-**Adapter (環境固有)**:
-- docs/03 Fix 2 (Web UI / DOM 検証 adapter) / Fix 5 (Next.js dotenv adapter)
-- docs/05 #5 (Node.js adapter) / #7/#8/#9 (Next.js adapter)
-- docs/06 (Next.js + 自前 auth adapter)
+**パターン (Next.js + Supabase 内の使い分け)**:
+- docs/03 Fix 2 (Web UI / DOM 検証 / Playwright 等)
+- docs/03 Fix 5 + docs/05 #5/#7/#8/#9 (Next.js dotenv / npm port pin / next-env.d.ts / .env.local)
+- docs/06 (Next.js + 自前 auth)
+- (v1.0 予定) docs/06-supabase-auth.md (Supabase Auth + RLS) / docs/06-nextauth.md / docs/06-clerk.md 等
 
 ## 監査の 2 系統 (ランブック監査 / コードベース監査)
 
