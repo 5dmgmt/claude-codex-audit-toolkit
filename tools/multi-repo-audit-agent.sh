@@ -240,7 +240,10 @@ run_phase() {
     return 0
   fi
 
-  # 実 codex 監査 → phase-audit-agent.sh 委任
+  # 実 codex 監査 → phase-audit-agent.sh 委任 (OUTPUT_PREFIX に repo+course+phase 含めて衝突防止)
+  local result_dir="${HOME}/.audit-multi-repo-results"
+  mkdir -p "$result_dir"
+  local out_prefix="${repo}_${course}_${phase_id}"
   TARGET_REPO="$repo_path" \
   PHASE_FILE="$phase_file" \
   PHASE_ID="$phase_id" \
@@ -249,6 +252,8 @@ run_phase() {
   TIMEOUT_SEC="$timeout_sec" \
   MODEL="$model" \
   REASONING="$reasoning" \
+  OUTPUT_DIR="$result_dir" \
+  OUTPUT_PREFIX="$out_prefix" \
   bash "$SCRIPT_DIR/phase-audit-agent.sh" > "$phase_log" 2>&1 &
   local agent_pid=$!
 

@@ -35,6 +35,9 @@ MAX_ROUNDS="${MAX_ROUNDS:-5}"
 TIMEOUT_SEC="${TIMEOUT_SEC:-600}"
 MODEL="${MODEL:-gpt-5.5}"
 REASONING="${REASONING:-xhigh}"
+# OUTPUT_PATH に repo 名 / course を含めるための prefix (= 並列 worker で同じ PHASE_ID を持つ repo の衝突防止)
+OUTPUT_DIR="${OUTPUT_DIR:-/tmp}"
+OUTPUT_PREFIX="${OUTPUT_PREFIX:-phase-${PHASE_ID}}"
 
 # ============================================================
 # Validation
@@ -114,8 +117,8 @@ declare -a round_results
 while [ "$round" -le "$MAX_ROUNDS" ]; do
   printf '=== Round %d / %d ===\n' "$round" "$MAX_ROUNDS"
 
-  ROUND_OUTPUT="/tmp/phase-${PHASE_ID}-r${round}.md"
-  ROUND_LOG="/tmp/phase-${PHASE_ID}-r${round}.log"
+  ROUND_OUTPUT="${OUTPUT_DIR}/${OUTPUT_PREFIX}-r${round}.md"
+  ROUND_LOG="${OUTPUT_DIR}/${OUTPUT_PREFIX}-r${round}.log"
 
   PROMPT="${RUNBOOK_FILE} を読み、commit ${TARGET_SHA} の snapshot として Phase ${PHASE_ID} (file: ${PHASE_FILE}) の R${round} 監査。Fix 6 横断 6 観点 ULTRATHINK を Next.js + Supabase 文脈で適用。Critical/High/Medium/Low に分類。Critical/High が無ければ明示。"
 
@@ -200,7 +203,7 @@ printf 'Round results:\n'
 for r in "${round_results[@]}"; do
   printf '  %s\n' "$r"
 done
-printf 'Output dir: /tmp/phase-%s-r*.md\n' "$PHASE_ID"
+printf 'Output dir: %s/%s-r*.md\n' "$OUTPUT_DIR" "$OUTPUT_PREFIX"
 printf '\n'
 
 # ============================================================
