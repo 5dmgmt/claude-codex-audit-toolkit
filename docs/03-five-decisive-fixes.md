@@ -1,10 +1,21 @@
-# 03. 6 つの決定的対策 (5 fixes + 横断観点 ULTRATHINK)
+# 03. 6 つの決定的対策 (フレームワーク中立 4 + adapter 2)
 
-## 位置づけ
+## 位置づけと適用範囲
 
 [`02-anti-drip-prompt-v2.md`](02-anti-drip-prompt-v2.md) の五月雨防止プロンプトだけでは ALL PASS に到達しないケースがあります。これは Codex 側のプロンプト設計とは別軸の **ランブック / 監査基盤の構造的欠陥** によるものです。
 
-SIFT Phase C ランブックを 13 ラウンド回した経験から、**この 5 つを最初から織り込めば短いラウンドで PASS に到達しやすくなる** という仮説に基づく対策です (具体的なラウンド数は対象により大きく異なる)。
+本ドキュメントの Fix は **フレームワーク中立** と **adapter (環境固有)** の 2 階層に整理されています:
+
+| Fix | 階層 | 適用範囲 | 出典実証 |
+|---|---|---|---|
+| Fix 1: commit pin + dirty check + snapshot 確認 | **コア (中立)** | 全プロジェクト | SIFT 13R / Workshop 4R / video-subtitler 5R 全部 |
+| Fix 2: canonical baseline (DOM API 選定) | **コア (中立)** | Web UI / DOM 検証を含むプロジェクト | SIFT 13R (paste 動線検証) |
+| Fix 3: 独立ブロック変数 fail-fast | **コア (中立)** | 全プロジェクト (shell スニペット品質) | SIFT 13R / Workshop 4R 共通 |
+| Fix 4: BSD sed / grep 互換 | **コア (中立)** | macOS + Linux 両対応の shell スニペットを書く全プロジェクト | SIFT 13R で確立 |
+| Fix 5: dotenv 全表記対応 + load slot | **adapter (Next.js 固有)** | Next.js プロジェクト | SIFT / Workshop は Next.js 16 |
+| Fix 6: 横断 6 観点 ULTRATHINK | **adapter (Code review 寄り)** | コードベース監査 (ランブックでも一部適用可) | video-subtitler 5R (Fix 6 不在で五月雨式運用になった反省) |
+
+> **N=1 の注意**: Fix 5 (Next.js dotenv) は SIFT/Workshop の 2 ケース、Fix 6 (横断 6 観点) は video-subtitler の 1 ケースから抽出した仮説です。他の framework / 他のコードベースでの汎化は要検証。Rails / Django / Go 等の adapter を別途定義する余地があります ([CONTRIBUTING.md](../CONTRIBUTING.md) 参照)。
 
 ## Fix 1. commit pin + dirty check + snapshot 確認
 

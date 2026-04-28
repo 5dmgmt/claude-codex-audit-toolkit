@@ -1,5 +1,7 @@
 # 01. Claude Code + Codex 監査ループの全体像
 
+> **Version**: v0.4-beta — 5dmgmt 内部で 3 ケース実証済 (Workshop 4R / SIFT 13R / video-subtitler 5R)。コア (フレームワーク中立) と adapter (Next.js / Code review 等) の境界を再編成した直後で、5dmgmt 系列以外の事例を募集中 ([CONTRIBUTING.md](../CONTRIBUTING.md))。
+
 ## 想定読者
 
 - Claude Code (Anthropic) でランブック・教材・ドキュメントを書いている人
@@ -18,6 +20,20 @@
 ```
 
 > 旧 v2 (deprecated) で推奨していた「7 要素重圧テンプレ (全行 enumerate / mandatory セクション / 3 段階構造 / 全カテゴリ均等深さ含む)」は Codex CLI 0.125.0 で tool ループに陥ることが判明したため廃止しました。詳細は [`08-known-pitfalls.md`](08-known-pitfalls.md) 参照。
+
+## docs マップ — どこを読むか
+
+利用者の状況によって読むべき場所が変わります:
+
+| 状況 | 必読 (コア) | 状況に応じた adapter |
+|---|---|---|
+| ランブック (静的文書 / 教材 / 仕様書) を Codex で監査したい | docs/02 / 03 (Fix 1-4) / 04 / 07/manual | docs/05 #1-4/14 (shell 互換系) |
+| Next.js プロジェクトの実装監査 | docs/02 / 03 (Fix 1-4) / 04 / 07/code | docs/03 Fix 5 (dotenv) / 05 全 14 項目 / 06 (dev bypass) |
+| Python / Go / Rails / 他フレームワーク pipeline | docs/02 / 03 (Fix 1-4 + Fix 6) / 04 / 07/code | docs/05 #1-4/14 のみ (#5/7/8/9 は Next.js 固有なので要 adapter 開発) |
+| ツールキット内部仕組みを理解したい | docs/01-08 全部 | examples/ 全部 |
+
+**コア** (フレームワーク中立) = docs/02 / docs/03 Fix 1-4 + Fix 6 / docs/04 / docs/07 (テンプレ自体)
+**Adapter** (環境固有) = docs/03 Fix 5 (Next.js dotenv) / docs/05 #5/7/8/9/12 (Next.js + Codex CLI) / docs/06 (Next.js + 自前 auth)
 
 ## 監査の 2 系統 (ランブック監査 / コードベース監査)
 

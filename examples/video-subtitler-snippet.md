@@ -6,7 +6,7 @@
 
 ## ラウンドごとの推移
 
-> 出典: claude-memory `video_subtitler_audit.md` (commit `2c906df`)。
+> 出典: 5dmgmt 内部記録 `claude-memory/video_subtitler_audit.md` (commit `2c906df`、private repo `5dmgmt/claude-memory`)。本表の数値は内部記録に基づく概数で、外部からは検証できません。
 
 | 周 | model | 検出 (H / M / L) | 完了 commit |
 |---|---|---|---|
@@ -25,7 +25,7 @@
 - 周 2-4 で発見: 時間軸不整合 / 並行実行衝突 / 原子性欠如 / パストラバーサル
 - 周 1 では「動くコード」優先で書いた結果、横断的観点を後追いで洗うことに
 
-CODEX 4 分 × 5 周 + push 5 回の **五月雨式運用** になり、運用上の反省として claude-memory に `feedback_audit_workflow.md` を記録 ([詳細](#feedback-反映)) 。
+CODEX 4 分 × 5 周 + push 5 回の **五月雨式運用** になり、運用上の反省として 5dmgmt 内部 (claude-memory private repo) に `feedback_audit_workflow.md` を記録。要点を [feedback 反映](#feedback-反映) に転記。
 
 ## ランブック監査ケースとの対比
 
@@ -70,7 +70,7 @@ video-subtitler は周回ごとに push したが、結果として `_review-not
 
 ## feedback 反映
 
-claude-memory `feedback_audit_workflow.md`:
+5dmgmt 内部 `claude-memory/feedback_audit_workflow.md` の要点 (private repo / 公開引用):
 
 > CODEX 等の外部監査を反復で回す時、CODEX の指摘を待ってから1件ずつ反応するパターンに陥らない。
 > 反復監査の 1 周目に、自己 ULTRATHINK で横断観点を全部洗う。

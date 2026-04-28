@@ -1,4 +1,6 @@
-# 06. dev / local 環境 auth bypass の 4 原則
+# 06. dev / local 環境 auth bypass の 4 原則 — Adapter: Next.js + 自前 auth
+
+> **Adapter 階層**: 本ドキュメントは **Next.js + 自前 auth (NextAuth / Supabase Auth / Auth0 等の専用ライブラリを使わない実装)** を前提とした実装パターンです。Rails / Django / Go 等は別 adapter として整備すべき領域 ([CONTRIBUTING.md](../CONTRIBUTING.md) 参照)。**4 原則の概念 (二重ガード / read-only 限定 / 最低権限 + RBAC / null 比較統一)** はフレームワーク中立で、実装パターンが Next.js 固有です。
 
 ## 位置づけ
 

@@ -91,27 +91,11 @@ PORT=__PORT__ __DEV_CMD__
 - 微妙な表記改善
 - コメント / docstring 改善
 
-## 2. paste 5 軸 (受講者の貼り付け検証)
+## 2. UI / paste 検証 (該当する場合のみ)
 
-受講者が prompt をコピペする箇所では、5 軸全部で検証:
+> **注意**: paste 5 軸 / Viewport 3 軸は **Workshop 教材ランブック由来の固有検証手順** であり、ランブック監査全般で必須ではありません。受講者が prompt をコピペする教材や、UI の見え方を検証する必要があるランブックでのみ適用してください。詳細は本ファイル末尾の [Appendix A](#appendix-a-workshop-固有-paste5-軸--viewport-3-軸) 参照。
 
-1. **innerText 完全一致** (canonical baseline)
-2. **改行コード** (`\n` / `\r\n` の統一)
-3. **末尾空白** (trailing whitespace)
-4. **見えない文字** (zero-width space / nbsp)
-5. **エンコーディング** (UTF-8 BOM の有無)
-
-[`03-five-decisive-fixes.md` Fix 2](../03-five-decisive-fixes.md#fix-2-canonical-baseline-dom-api-の選定統一) 参照。
-
-## 3. Viewport 3 軸 (UI ジャーニー)
-
-UI を操作する箇所では、3 viewport で検証:
-
-1. **mobile** (375x667 / iPhone SE)
-2. **tablet** (768x1024 / iPad)
-3. **desktop** (1280x800)
-
-各 viewport で「読める / 操作できる / 崩れない」の 3 観点。
+該当しないランブック (純粋な仕様書 / API 定義 / 監査手順書 等) では本セクションをスキップして次へ進んでください。
 
 ## 4. Phase 単位の検査フロー
 
@@ -177,11 +161,10 @@ codex exec -s read-only -m gpt-5.5 -c model_reasoning_effort="xhigh" \
 - [ ] **P1 残ゼロ** (例外不可) / 証跡: Codex 監査出力 + `_review-notes.md` の P1 セクション空
 - [ ] **未承認 P2 残ゼロ** / 証跡: 承認済 P2 は `_review-notes.md` の例外承認表に ID / 承認者 / 承認日 / 理由を記録
 - [ ] **Codex 監査で P1 / 未承認 P2 がゼロ** / 証跡: `/tmp/codex-result.md` の総合判定行 (P3 finding は記録のみで進行可)
-- [ ] **paste 検証**: 該当する場合は 5 軸検証ログ / canonical baseline スクショ / `diff orig clip` の出力。非該当の場合は `_review-notes.md` に `N/A: 理由` を記録
-- [ ] **Viewport 検証**: 該当する場合は 3 viewport 各 1 枚以上のスクショ。非該当の場合は `_review-notes.md` に `N/A: 理由` を記録
+- [ ] **paste / Viewport 検証** (該当する場合のみ — 詳細は [Appendix A](#appendix-a-workshop-固有-paste-5-軸--viewport-3-軸)): 該当時は paste 5 軸 + Viewport 3 viewport の証跡 / 非該当の場合は `_review-notes.md` に `N/A: 理由 (例: 教材コピペ要素なし)` を記録
 - [ ] **承認**: ランブック設定 (確定 version 列の責任者) が承認者として承認 / 承認日: YYYY-MM-DD JST
 
-6 項目全部 ✅ + 証跡記録で次 Phase 進行。**P3 は記録のみで進行可** (P3 finding 残っていても進行できる)。
+5 項目全部 ✅ + 証跡記録で次 Phase 進行 (paste / Viewport は 1 項目に統合)。**P3 は記録のみで進行可** (P3 finding 残っていても進行できる)。
 
 ## 6. _review-notes.md フォーマット
 
@@ -255,3 +238,43 @@ feat(phase10501): paste 検証ロジック追加
 - [`05-env-lint-checklist.md`](../../07-runbook-templates/../05-env-lint-checklist.md) — 環境系 lint 14 項目
 - [`06-dev-bypass-design.md`](../../07-runbook-templates/../06-dev-bypass-design.md) — dev bypass 4 原則
 - [`codex-audit-prompt.txt`](../07-runbook-templates/codex-audit-prompt.txt) — Codex 監査プロンプトテンプレート (コピー後は対象 repo の同テンプレを参照)
+
+---
+
+## Appendix A. Workshop 固有 paste 5 軸 / Viewport 3 軸
+
+> 以下は **AIFCC Workshop 教材ランブック** で実走した固有検証手順。受講者が prompt や deliverableTemplate をコピペする教材を監査する場合に適用する。一般のランブック監査では不要。
+
+### paste 5 軸
+
+受講者が prompt をコピペする箇所では、5 軸全部で検証:
+
+1. **innerText 完全一致** (canonical baseline)
+2. **改行コード** (`\n` / `\r\n` の統一)
+3. **末尾空白** (trailing whitespace)
+4. **見えない文字** (zero-width space / nbsp)
+5. **エンコーディング** (UTF-8 BOM の有無)
+
+詳細は [`03-five-decisive-fixes.md` Fix 2](../03-five-decisive-fixes.md#fix-2-canonical-baseline-dom-api-の選定統一) 参照。
+
+### Viewport 3 軸
+
+UI を操作する箇所では、3 viewport で検証:
+
+1. **mobile** (375x667 / iPhone SE)
+2. **tablet** (768x1024 / iPad)
+3. **desktop** (1280x800)
+
+各 viewport で「読める / 操作できる / 崩れない」の 3 観点。
+
+### 必須ゲート (paste / viewport を含む場合)
+
+§5 必須ゲートに加えて以下を確認:
+
+- [ ] paste 検証: prompt + deliverableTemplate を独立に 5 軸測定
+- [ ] Viewport 検証: 3 viewport 各 1 枚以上のスクショ
+
+### 適用判定
+
+- **適用**: 受講者が prompt / template / コードをコピペする教材ランブック (Workshop 系)
+- **非適用**: API 仕様書 / 監査手順書 / 内部ドキュメント / コードレビュー型監査

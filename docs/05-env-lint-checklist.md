@@ -6,6 +6,20 @@ Codex に出す前に Claude Code 側で **機械的に撲滅できる defect** 
 
 SIFT Phase C 13 ラウンド事案で抽出した、**環境依存・実行系の 14 項目**:
 
+### 適用範囲
+
+| 項目 | 階層 | 範囲 |
+|---|---|---|
+| #1 BSD sed/grep / #2 sed -i.bak / #3 zsh brace / #4 git diff SHA pin / #14 cwd 絶対パス | **コア (中立)** | macOS + Linux 両対応の shell スニペットを書く全プロジェクト |
+| #10 secret echo / #11 printf vs echo | **コア (中立)** | 全プロジェクト (秘密値の扱い) |
+| #13 heredoc quoted | **コア (中立)** | shell スニペット品質 |
+| #5 PORT pin (npm run dev) | **adapter (Node.js 系)** | Node.js / npm 系プロジェクト |
+| #6 curl status code | **コア (中立)** | curl を使う全プロジェクト |
+| #12 codex `-s read-only` | **コア (Codex CLI 固有)** | 本ツールキット利用者全員 |
+| #7 next-env.d.ts gitignore / #8 dotenv 4 load slot + 6 表記 / #9 .env.local commit 禁止 | **adapter (Next.js 固有)** | Next.js プロジェクト |
+
+Rails / Django / Go 等の adapter を別途定義する余地があります ([CONTRIBUTING.md](../CONTRIBUTING.md) 参照)。
+
 ## 14 項目
 
 ### 1. BSD sed / grep 互換 (`[[:space:]]` 採用)
