@@ -95,11 +95,11 @@ git cat-file -e "$TARGET_SHA:__RUNBOOK_PATH__" \
 # (c) R2 以降は五月雨防止 4 行ブロック + 過去反映済リスト 30+ 項目を AUDIT_RUNBOOK.md 内
 #     (or 別ファイル) で蓄積し、毎周 Codex に渡す (docs/02 §要素 2 / README Quick Start 2)
 
-# (d) AUDIT_RUNBOOK.md (本ファイル) を Codex に渡す + 対象 SHA を明記
+# (d) __RUNBOOK_PATH__ (= 監査運用ガイド本体 / 例: AUDIT_RUNBOOK.md or docs/AUDIT_RUNBOOK.md) を Codex に渡す + 対象 SHA を明記
 codex exec -s read-only -m __MODEL__ -c model_reasoning_effort="xhigh" \
   --skip-git-repo-check \
   --output-last-message __OUTPUT_PATH__ \
-  "AUDIT_RUNBOOK.md を読み、commit $TARGET_SHA に対する __ROUND__ 周目監査。Critical/High/Medium/Low に分類。Critical/High が無ければ明示。" \
+  "__RUNBOOK_PATH__ を読み、commit $TARGET_SHA の snapshot として __ROUND__ 周目監査。Critical/High/Medium/Low に分類。Critical/High が無ければ明示。" \
   < /dev/null
 
 # (e) 結果を全件抽出 (tail だけでは 100KB+ の中盤を落とす)

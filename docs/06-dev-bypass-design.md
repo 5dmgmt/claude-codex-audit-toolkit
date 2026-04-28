@@ -236,12 +236,13 @@ export async function POST(req: Request) {
 ### dev bypass の有効化
 
 1. `.env.local` に `ENABLE_DEV_AUTH_BYPASS=true` を追記
-2. `npm run dev` で起動
+2. `PORT=3001 npm run dev` で起動 (ポートを pin / docs/05 #5 と整合)
 3. read-only journey: 通常の閲覧操作で 200 を確認
 4. **write 防御の negative test (必須)**: 代表的な write endpoint (POST / PUT / PATCH / DELETE) を bypass user で叩き、403 が返ることを assert する。例:
    ```bash
+   PORT=3001
    HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' \
-     -X POST http://localhost:3001/api/foo)
+     -X POST "http://localhost:${PORT}/api/foo")
    [ "$HTTP_CODE" = "403" ] || { echo "FAIL: expected 403, got $HTTP_CODE"; exit 1; }
    ```
    未定義 method の 405 は別枠。read-only journey をスキップするだけでは不十分で、**bypass user で write が 403 になることを実走で確認** する必要がある (no-op = silent success だと検証にならない)
@@ -255,10 +256,16 @@ dev bypass を実装する前に、各項目を証跡付きで確認:
 - [ ] **二重ガード**: `getCurrentUser` 等の bypass 経路で `NODE_ENV === "development" && ENABLE_DEV_AUTH_BYPASS === "true"` を AND 必須 / 証跡: `git grep 'ENABLE_DEV_AUTH_BYPASS'` で参照箇所を確認
 - [ ] **起動時 fail-closed**: server entry / instrumentation で `bypass && (VERCEL_ENV === "production"|"preview" || NODE_ENV === "production" || CI === "true")` で throw / 証跡: `git grep -n 'ENABLE_DEV_AUTH_BYPASS' src/server/instrumentation*` 等
 - [ ] **本番 env 未登録**: `vercel env ls production` / `vercel env ls preview` で `ENABLE_DEV_AUTH_BYPASS` が出ないこと / 証跡: 出力スクリーンショット
-- [ ] **write は 403**: 全 mutation 境界 (POST / PUT / PATCH / DELETE / server action) で `user.isBypass` → 403 / 証跡: `git grep -nE '(export async function (POST|PUT|PATCH|DELETE))' app/api/` を一覧化、各箇所で 403 分岐を確認
-- [ ] **write negative test 実走**: bypass user で代表 write endpoint に `curl -X POST` し 403 を確認 / 証跡: `curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:PORT/api/foo` の出力
+- [ ] **write は 403 (全境界 inventory)**: API route handler / server action / form action / admin loader / `"use server"` ファイル をすべて inventory 化し、各境界で `user.isBypass` → 403 / 証跡: 以下を全部実行して一覧化、各箇所で 403 分岐を確認
+  ```bash
+  git grep -nE '(export async function (POST|PUT|PATCH|DELETE))' app/api/   # API route
+  git grep -lnE '^"use server"' app/ lib/ src/                              # server action ファイル
+  git grep -nE '(export async function action|action\s*:\s*async)' app/    # form action
+  git grep -ln 'admin' app/ -- '*.tsx' '*.ts' | xargs git grep -l 'loader\|page'  # admin loader/page
+  ```
+- [ ] **write negative test 実走**: bypass user で代表 write endpoint に `curl -X POST` し 403 を確認 / 証跡: `curl -s -o /dev/null -w '%{http_code}' -X POST "http://localhost:${PORT}/api/foo"` の出力
 - [ ] **mock user role**: `systemRole: "USER"` 固定 / 証跡: `git grep -n 'isBypass: true' lib/auth*` の周辺
-- [ ] **admin server-side RBAC**: admin 系 route / API で `user.systemRole !== "ADMIN"` → 403 / 証跡: admin route inventory + 各箇所の RBAC チェック
+- [ ] **admin server-side RBAC (全境界)**: admin 系 API route / admin loader / admin page / admin server component で `user.systemRole !== "ADMIN"` → 403 / 証跡: 上記 inventory のうち admin 配下を全部 RBAC チェック (API だけに偏らない)
 - [ ] **`==`/`===` null 統一**: `git grep -nE 'if \(![^)=]+(Id|Token|Session)\)'` で `if (!userId)` 系がゼロ
 - [ ] **runbook 明記**: bypass 有効化手順 + read-only journey + 403 negative test step が記載
 
