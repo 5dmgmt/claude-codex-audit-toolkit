@@ -167,8 +167,9 @@ codex exec -s read-only -m gpt-5.5 -c model_reasoning_effort="xhigh" \
 |---|---|
 | [workshop-course1-snippet.md](examples/workshop-course1-snippet.md) | Workshop 4R で scope cut → v3.4 確定 (ランブック / 教材) |
 | [sift-phase-c-snippet.md](examples/sift-phase-c-snippet.md) | SIFT 13R で ALL PASS (ランブック / 受講者ジャーニー監査) |
-| [video-subtitler-snippet.md](examples/video-subtitler-snippet.md) | video-subtitler 5R で下降収束 (コードベース / Whisper+ffmpeg pipeline) |
-| [comparison-4r-vs-13r.md](examples/comparison-4r-vs-13r.md) | 3 ケースの比較分析 (ファイル名は維持) |
+| [video-subtitler-snippet.md](examples/video-subtitler-snippet.md) | video-subtitler 5R で下降収束 (コードベース / Whisper+ffmpeg pipeline / Next.js + Supabase 範囲外応用例) |
+| [aifcc-workshop-snippet.md](examples/aifcc-workshop-snippet.md) | aifcc-workshop R1 (Next.js + Supabase コードベース dogfooding 進行中 / C×0+H×3+M×5+L×0 / Fix 6 N=2 拡張) |
+| [comparison-4r-vs-13r.md](examples/comparison-4r-vs-13r.md) | 3 ケースの比較分析 (ファイル名は維持 / aifcc-workshop は R 完了後に統合検討) |
 
 ## scripts/
 
