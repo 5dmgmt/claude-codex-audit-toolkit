@@ -1,23 +1,24 @@
-# 10. Multi-repo Phase 監査エージェントループ設計 (3 repo / 約 450 Phase 全自走 / コンパクト跨ぎ resume)
+# 10. Multi-repo Phase 監査エージェントループ設計 (4 repo / 325 Phase 全自走 / コンパクト跨ぎ resume)
 
 ## 位置づけ
 
-[`docs/09`](09-phase-audit-agent-loop-design.md) の単一 repo / 15 Phase prototype を、**3 repo (Workshop / RUN / CPN) × 全 Course × 約 450 Phase** の本番運用 SaaS への適用に拡張する設計文書。コンパクト跨ぎ resume + 本番運用ガード + Critical 検出時の人間判断介入を組み込む。
+[`docs/09`](09-phase-audit-agent-loop-design.md) の単一 repo / 15 Phase prototype を、**4 repo (Workshop / RUN / SIFT / CPN) × 全 Course × 325 監査単位** の本番運用 SaaS への適用に拡張する設計文書。コンパクト跨ぎ resume + 本番運用ガード + Critical 検出時の人間判断介入を組み込む。
 
-> 本ドキュメントは **claude-codex-audit-toolkit dogfooding 第 2 段** として、aifcc-workshop / aifcc-run / aifcc-cpn の Phase 単位品質監査を完全自動化するための設計。Phase 監査は教材 / コードベース 双方の品質保証を兼ねる。
+> 本ドキュメントは **claude-codex-audit-toolkit dogfooding 第 2 段** として、aifcc-workshop / aifcc-run / aifcc-sift / aifcc-cpn の Phase 単位品質監査を完全自動化するための設計。Phase 監査は教材 / コードベース 双方の品質保証を兼ねる。
 
 ## 規模感
 
 | 項目 | 値 | 備考 |
 |---|---|---|
-| Workshop Phase 数 | 75+ | Course 1-5 / 1 Course ≈ 15 Phase |
-| RUN Phase 数 | 50+ | Course 1-5 / 受講後プログラム |
-| CPN Phase 数 | 313 + 208 Quiz + 120 用語 | 15 Course / CCA-F 必須 4 + 推奨 2 + 参照 9 |
-| **合計 Phase 数** | **約 450** | (Quiz / 用語は当面除外、後続段階で組込み) |
-| 1 Phase 完走時間 | 18-45 分 | 監査 (4-10 分) × 3 round + 反映 (2-5 分/round) |
-| **総時間予算** | **約 75 時間 (3 並列)** | 数日にわたる長期ループ |
-| **API コスト粗算** | **$1000-2000** | Codex 利用料 (Phase 数 × round × token) |
-| commit 上限 | ≈ 1500 | 修正 1 件 = 1 commit / Phase 平均 3 commits |
+| Workshop Phase 数 | **165** | course0-5 (course0=3, c1=15, c2=31, c3=56, c4=36, c5=24) |
+| RUN Phase 数 | **46** | Course 1-5 (c1=6, c2=11, c3=10, c4=9, c5=10) |
+| SIFT Phase 数 | **99** | course1-7 (c1-6=15 each, c7=9) |
+| CPN 監査単位 | **15** | lib/courses/course*-*.ts (1 ファイル = 1 監査単位 / phase split は v0.7+) |
+| **合計 監査単位** | **325** | inventory script で実数取得 (audit-phase-inventory.sh) |
+| 1 単位完走時間 | 18-45 分 | 監査 (4-10 分) × 3 round + 反映 (2-5 分/round) |
+| **総時間予算** | **約 50 時間 (4 並列)** | 数日にわたる長期ループ (= 数セッション分割 + compact 跨ぎ resume) |
+| **API コスト粗算** | **$700-1400** | Codex 利用料 (監査単位 × round × token) |
+| commit 上限 | ≈ 1000 | 修正 1 件 = 1 commit / 単位平均 3 commits |
 
 **1 セッションでは完走不可** → コンパクト跨ぎ resume 設計が必須。
 
@@ -32,10 +33,11 @@
         ├─ stop_reason != null → exit + 「stop_reason 解消後に再開」案内
         │
         ├─ Phase scheduler ループ:
-        │   ├─ 並列 worker (3 個 / 1 個ずつ各 repo を担当)
+        │   ├─ 並列 worker (4 個 / 1 個ずつ各 repo を担当)
         │   │   ├─ worker 1: aifcc-workshop の current Phase
         │   │   ├─ worker 2: aifcc-run の current Phase
-        │   │   └─ worker 3: aifcc-cpn の current Phase
+        │   │   ├─ worker 3: aifcc-sift の current Phase
+        │   │   └─ worker 4: aifcc-cpn の current Phase
         │   │
         │   ├─ 各 worker の per-Phase ループ:
         │   │   ├─ codex exec で監査 (gpt-5.5 xhigh / timeout 10 分 / retry 3)
@@ -83,9 +85,10 @@
     "stop_on_consecutive_build_failure": 5,
     "stop_on_consecutive_frozen_recidive": 3,
     "smoke_test_url": {
-      "aifcc-workshop": "https://workshop.aifcc.jp/api/health",
-      "aifcc-run": "https://run.aifcc.jp/api/health",
-      "aifcc-cpn": "https://cpn.aifcc.jp/api/health"
+      "aifcc-workshop": "https://workshop.aifcc.jp/",
+      "aifcc-run": "https://run.aifcc.jp/",
+      "aifcc-sift": "https://sift.aifcc.jp/",
+      "aifcc-cpn": "https://cpn.aifcc.jp/"
     }
   },
   "repos": {
@@ -140,7 +143,7 @@
 
 | 並列度 | 軸 | 理由 |
 |---|---|---|
-| 3 並列 | repo 軸 (Workshop / RUN / CPN 同時) | Codex API レート制限 + Vercel deployment 安定化を考慮した最大並列 |
+| 4 並列 | repo 軸 (Workshop / RUN / SIFT / CPN 同時) | Codex API レート制限 + Vercel deployment 安定化を考慮した最大並列 |
 | 直列 | 同 repo 内 Phase 軸 | 共通インフラ層問題 (e.g., R1 cookie 属性) を発見しやすくする / commit pin 純度維持 |
 | 直列 | 同 Phase 内 round 軸 | 五月雨防止 v2 の precondition 蓄積 / 修正反映後に次 round |
 
@@ -176,7 +179,7 @@ cat ~/audit-multi-repo-state.json | jq '.current_focus'  # 現在の進捗確認
 
 ## 本番運用ガード
 
-aifcc-workshop / aifcc-run / aifcc-cpn は本番運用 SaaS で受講者リアルタイム影響あり。以下のガードを必須:
+aifcc-workshop / aifcc-run / aifcc-sift / aifcc-cpn は本番運用 SaaS で受講者リアルタイム影響あり。以下のガードを必須:
 
 | ガード | 内容 | 失敗時 |
 |---|---|---|
@@ -241,7 +244,7 @@ prompt:
 | 6 | Claude Code subagent ハンドオフ実装 | 60 分 | 後 |
 | 7 | 本番運用ガード (smoke test / cooldown / Critical 停止) | 30 分 | 後 |
 | 8 | 単体テスト (1 repo / 1 Phase 実走) | 30 分 | 後 |
-| 9 | 3 repo / 5 Phase で dry-run | 60 分 | 後 |
+| 9 | 4 repo / 5 Phase で dry-run | 60 分 | 後 |
 | 10 | 全 Phase 本番実走 (= 数日 + コンパクト跨ぎ resume) | 数日 | 後 |
 
 ## 段階的拡張
@@ -251,12 +254,12 @@ prompt:
 | Phase A (本ドキュメント) | 設計確定 + 初期化 + resume 手順 | 低 |
 | Phase B | 単一 repo / 単一 Course / 5 Phase 自走 (dry-run) | 中 |
 | Phase C | 単一 repo / 全 Course 自走 | 中 |
-| Phase D | 3 repo 並列自走 (本番) | 高 |
+| Phase D | 4 repo 並列自走 (本番) | 高 |
 | Phase E | Quiz / 用語 / Workshop の Phase 監査ランブック自走 | 高 |
 
 ## 残課題 (v0.6 / v1.0 で再判定)
 
-- **Codex API 並列レート制限の実証**: 3 並列で問題ないか実際に走らせて確認
+- **Codex API 並列レート制限の実証**: 4 並列で問題ないか実際に走らせて確認
 - **deployment 安定化の数値化**: 5 分 cooldown は仮 / Vercel deployment が確定する時間を計測
 - **smoke test の網羅性**: `/api/health` が無い場合は `/` (LP) の curl で代替
 - **AUDIT_RUNBOOK.md の蓄積爆発**: Phase ごとに `PHASE_RUNBOOK_{id}.md` 分割を検討
