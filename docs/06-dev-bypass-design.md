@@ -100,8 +100,10 @@ if (user.systemRole !== "ADMIN") {
 }
 ```
 
+境界別の deny 契約 (HTTP / 非 HTTP で fail-closed の表現が異なる):
+
 ```ts
-// admin route handler / server action / API (server-side RBAC、必須)
+// (a) HTTP route handler / API (HTTP status を直接返せる境界)
 export async function GET(req: Request) {
   const user = await getCurrentUser();
   if (user === null || user.systemRole !== "ADMIN") {
@@ -109,9 +111,26 @@ export async function GET(req: Request) {
   }
   // admin データ返却
 }
+
+// (b) server action / form action ("use server" / HTTP status を直接返さない境界)
+"use server";
+export async function deleteUser(id: UserId) {
+  const user = await getCurrentUser();
+  if (user === null || user.isBypass || user.systemRole !== "ADMIN") {
+    throw new ForbiddenError("admin only");  // typed deny / action test で assert
+  }
+  // mutation
+}
+
+// (c) admin page / server component / loader (data fetch 前に fail-closed)
+export default async function AdminPage() {
+  const user = await requireAdmin();  // 内部で forbidden() / notFound() / redirect() を投げる
+  // user.systemRole === "ADMIN" が確定した状態で data fetch
+  return <AdminDashboard user={user} />;
+}
 ```
 
-UI 側だけだと、bypass user が `/api/admin/users` 等を直接叩いた瞬間に admin データが流れます。**server-side RBAC が真の防衛線**。
+UI 側だけだと、bypass user が `/api/admin/users` 等を直接叩いた瞬間に admin データが流れます。**server-side RBAC が真の防衛線** で、HTTP route は `403`、server action は typed `ForbiddenError`、page/server component は `requireAdmin()` で `forbidden()` / `notFound()` / `redirect()` を data fetch 前に投げる、と境界別に契約を分けます。
 
 ### 原則 4. `if (!userId)` 禁止 (型と比較式を段階で揃える)
 
@@ -256,16 +275,23 @@ dev bypass を実装する前に、各項目を証跡付きで確認:
 - [ ] **二重ガード**: `getCurrentUser` 等の bypass 経路で `NODE_ENV === "development" && ENABLE_DEV_AUTH_BYPASS === "true"` を AND 必須 / 証跡: `git grep 'ENABLE_DEV_AUTH_BYPASS'` で参照箇所を確認
 - [ ] **起動時 fail-closed**: server entry / instrumentation で `bypass && (VERCEL_ENV === "production"|"preview" || NODE_ENV === "production" || CI === "true")` で throw / 証跡: `git grep -n 'ENABLE_DEV_AUTH_BYPASS' src/server/instrumentation*` 等
 - [ ] **本番 env 未登録**: `vercel env ls production` / `vercel env ls preview` で `ENABLE_DEV_AUTH_BYPASS` が出ないこと / 証跡: 出力スクリーンショット
-- [ ] **write は 403 (全境界 inventory)**: API route handler / server action / form action / admin loader / `"use server"` ファイル をすべて inventory 化し、各境界で `user.isBypass` → 403 / 証跡: 以下を全部実行して一覧化、各箇所で 403 分岐を確認
+- [ ] **write deny は境界別 (全境界 inventory)**: HTTP route = 403 / server action = typed `ForbiddenError` / page/server component = `requireAdmin()` で `forbidden()` / `notFound()` / `redirect()` を data fetch 前に投げる。各境界で `user.isBypass` を deny。証跡: 以下のコマンドで全境界を inventory 化:
   ```bash
-  git grep -nE '(export async function (POST|PUT|PATCH|DELETE))' app/api/   # API route
-  git grep -lnE '^"use server"' app/ lib/ src/                              # server action ファイル
-  git grep -nE '(export async function action|action\s*:\s*async)' app/    # form action
-  git grep -ln 'admin' app/ -- '*.tsx' '*.ts' | xargs git grep -l 'loader\|page'  # admin loader/page
+  # HTTP route handler (App Router + Pages Router 両対応)
+  rg --files | rg -E '(app/.*/route\.(ts|tsx|js|mjs)|pages/api/.*\.(ts|tsx|js|mjs))$'
+  rg -nE 'export\s+async\s+function\s+(POST|PUT|PATCH|DELETE)' app/ pages/ 2>/dev/null
+
+  # server action / form action ファイル ("use server" は先頭引用符を許容、関数内 directive も検出)
+  rg -lnE "^[[:space:]]*['\"]use server['\"]" app/ lib/ src/ 2>/dev/null
+  rg -nE "['\"]use server['\"];?[[:space:]]*$" app/ lib/ src/ 2>/dev/null     # 関数内 directive
+  rg -nE 'action=\{[^}]+\}' app/ 2>/dev/null                                  # <form action={...}>
+
+  # admin page / layout / server component
+  rg --files | rg -E 'app/.*/admin/.*/(page|layout|loading)\.(tsx|ts|jsx|js)$'
   ```
-- [ ] **write negative test 実走**: bypass user で代表 write endpoint に `curl -X POST` し 403 を確認 / 証跡: `curl -s -o /dev/null -w '%{http_code}' -X POST "http://localhost:${PORT}/api/foo"` の出力
+- [ ] **write negative test 実走 (境界別)**: HTTP route は `curl -X POST` で 403 / server action は action test で `ForbiddenError` 発生 assert / page は bypass user で開いて redirect or forbidden を確認 / 証跡: `curl -s -o /dev/null -w '%{http_code}' -X POST "http://localhost:${PORT}/api/foo"` の出力 + action test の console.log
 - [ ] **mock user role**: `systemRole: "USER"` 固定 / 証跡: `git grep -n 'isBypass: true' lib/auth*` の周辺
-- [ ] **admin server-side RBAC (全境界)**: admin 系 API route / admin loader / admin page / admin server component で `user.systemRole !== "ADMIN"` → 403 / 証跡: 上記 inventory のうち admin 配下を全部 RBAC チェック (API だけに偏らない)
+- [ ] **admin server-side RBAC (全境界)**: admin 配下の HTTP route / server action / page / layout / server component で `user.systemRole !== "ADMIN"` を deny / 証跡: 上記 inventory のうち admin 配下を全部 RBAC チェック (API だけに偏らない / page/layout は data fetch 前に `requireAdmin()`)
 - [ ] **`==`/`===` null 統一**: `git grep -nE 'if \(![^)=]+(Id|Token|Session)\)'` で `if (!userId)` 系がゼロ
 - [ ] **runbook 明記**: bypass 有効化手順 + read-only journey + 403 negative test step が記載
 

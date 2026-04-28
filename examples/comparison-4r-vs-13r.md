@@ -18,7 +18,7 @@
 |---|---|---|---|
 | **系統** | ランブック監査 (教材) | ランブック監査 (受講者ジャーニー) | コードベース監査 (Whisper+ffmpeg pipeline) |
 | **検査対象** | 教材ランブック (15 phase 構成) | システム構造を含む受講者ジャーニー監査ランブック | 実装コードベース全体 + AUDIT_RUNBOOK.md |
-| **1 ラウンド単位** | 1 ファイル (`docs/...md`) | 1 ファイル | 1 commit (リポ全体 / 複数ファイル) |
+| **1 ラウンド単位** | 1 ファイル (`docs/...md`) | 1 ファイル | 1 commit + AUDIT_RUNBOOK.md (リポ全体 / 複数ファイル / `--skip-git-repo-check`) |
 | **使用 model** | gpt-5.5 xhigh | gpt-5.5 xhigh | gpt-5.4 xhigh (gpt-5.5 xhigh は 19 分 hang あり) |
 | **R1 件数 / 周 1 検出** | 40 件 (P1×1+P2×35+P3×4 推定) | 多数 (詳細件数なし) | H4/M4/L2 |
 | **R3 件数 / 周 3 検出** | 6 件 | 18 件 | H1/M4/L3 |
@@ -49,7 +49,7 @@
 - **横断 6 観点 ULTRATHINK ([Fix 6](../docs/03-five-decisive-fixes.md#fix-6-反復監査の-1-周目で横断-6-観点-ultrathink-を全部洗う)) を 1 周目に行わなかった** = 五月雨式運用の主因
 - 周 2-4 で時間軸不整合 / 並行実行衝突 / 原子性欠如 / パストラバーサル が逐次検出された (これらは Fix 6 6 観点で 1 周目に予防可能だった)
 - gpt-5.5 xhigh で 19 分以上 hang する事例が出たため周 1 と 5 で gpt-5.4 xhigh に切替
-- 1 周ごとに push したため `_review-notes.md` 等の closure 成果物が散逸 (今後はまとめて 1 commit を推奨)
+- 1 周ごとに push したため `_review-notes.md` 等の closure 成果物が散逸 (各周の修正 commit 自体は維持必要 = commit pin / snapshot 固定の実用ガード。push を周ごとから「最終 closure 成果物まで含めてまとめて push」に変えるのが推奨)
 - 残 M16 (content-only fingerprint が SHA hash でない) + L10 (並行 Phase B output_path 衝突 = last-writer-wins) は次セッションで判断する位置取り
 
 ## 判断ポイント

@@ -197,11 +197,18 @@ fail_if_command_missing_option "#6. curl で status code 取得 (-w / --write-ou
   'curl で status code を %{http_code} で取得していない (-w や --write-out を使う)'
 
 # #10. 秘密値の表示 / 漏洩パターン
-# 検出対象: 行頭コマンドとしての (a) echo $VAR / "$VAR" / "${VAR}" / "KEY=$VAR" / "KEY=${VAR}" / (b) cat .env* / (c) printenv / (d) env (引数なし or pipe)
-# 除外: printf '%s' "$VAR" | (vercel|op|aws|gcloud) は #11 推奨形なので除外
-fail_if_match "#10. 秘密値を echo / 表示しない (cat .env / printenv / env / braced 変数も検出)" \
-  '^[[:space:]]*\$?[[:space:]]*(echo[[:space:]]+([^|]*[\"]?[A-Z][A-Z0-9_]*=)?[\"]?\$\{?[A-Z_][A-Z0-9_]*\}?|cat[[:space:]]+\.env|printenv([[:space:]]|$)|env[[:space:]]*(\||$|>))' \
-  'echo $VAR / "$VAR" / "${VAR}" / "KEY=$VAR" / cat .env* / printenv / env (引数なし) は秘密値漏洩リスク。[ -n "$VAR" ] で有無判定 / printf '\''%s'\'' "$VALUE" | <env コマンド> で投入'
+# 検出対象: 行頭コマンドとしての (a) echo (option 付き含む) $VAR / "$VAR" / "${VAR}" / "KEY=$VAR" / "KEY=${VAR}" / (b) cat .env* / (c) printenv / (d) env (引数なし or pipe)
+# 除外: printf '%s' "$VAR" | (vercel|op|aws|gcloud) は #11 推奨形なので除外 (#10b で別途扱う)
+fail_if_match "#10. 秘密値を echo / 表示しない (echo option 付き / cat .env / printenv / env / braced 変数も検出)" \
+  '^[[:space:]]*\$?[[:space:]]*(echo([[:space:]]+-[a-zA-Z]+)?[[:space:]]+([^|]*[\"]?[A-Z][A-Z0-9_]*=)?[\"]?\$\{?[A-Z_][A-Z0-9_]*\}?|cat[[:space:]]+\.env|printenv([[:space:]]|$)|env[[:space:]]*(\||$|>))' \
+  'echo $VAR (option 含む) / cat .env* / printenv / env (引数なし) は秘密値漏洩リスク。[ -n "$VAR" ] で有無判定 / printf '\''%s'\'' "$VALUE" | <env コマンド> で投入'
+
+# #10b. printf による秘密値の stdout 出力 (許可形 printf '%s' "$VAR" | <env コマンド> 以外は FAIL)
+# 検出: 行頭 printf に $VAR / ${VAR} を含み、行内に pipe (|) が無い (= stdout 直出力) 行
+# 除外: pipe で env コマンドに渡す形 (#11 推奨形)
+fail_if_match "#10b. printf による秘密値の stdout 出力 (printf '%s' \"\$VAR\" | <env コマンド> 以外は FAIL)" \
+  '^[[:space:]]*\$?[[:space:]]*printf[[:space:]]+[^|]*\$\{?[A-Z_][A-Z0-9_]*\}?[^|]*$' \
+  'printf $VAR の stdout 直接出力は秘密値漏洩リスク。許可形は printf '\''%s'\'' "$VALUE" | (vercel|op|aws|gcloud) のみ'
 
 # #11. env 投入は printf %s (echo NG / printf %s OK)
 # braced 変数 ${VAR} も検出
