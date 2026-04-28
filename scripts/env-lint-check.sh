@@ -4,8 +4,9 @@
 #
 # docs/05-env-lint-checklist.md の 14 項目のうち、機械検出に向く 10 系統を
 # grep ベースで自動チェックする。残り 4 項目 (#7 next-env.d.ts gitignore /
-# #8 dotenv 4 ファイル / #9 .env.local commit 禁止 / #13 heredoc quoted) は
+# #8 dotenv 4 load slot + 6 表記 / #9 .env.local commit 禁止 / #13 heredoc quoted) は
 # 目視確認が必要。詳細は docs/05 を参照。
+# #5/#7/#8/#9 は Next.js / Node.js adapter 固有なので、非該当の場合は N/A 記録で可。
 #
 # 使い方:
 #   ./scripts/env-lint-check.sh path/to/runbook.md
@@ -34,24 +35,33 @@ trap 'rm -rf "$TMPDIR_LINT"' EXIT
 
 # ---------- 検出ヘルパ ----------
 
-# 違反パターンが「ある」とき FAIL
+# 違反パターンが「ある」とき FAIL — 行頭 # コメント除外、行内 # 以降除外
 fail_if_match() {
   local name="$1"
   local pattern="$2"
   local message="$3"
-  local match
-  set +e
-  match=$(grep -nE -e "$pattern" -- "$TARGET" 2>/dev/null)
-  local rc=$?
-  set -e
-  if [ $rc -ge 2 ]; then
-    printf '\033[31m[ERROR]\033[0m %s — grep failure (rc=%s)\n' "$name" "$rc" >&2
-    exit 2
-  fi
-  if [ $rc -eq 0 ] && [ -n "$match" ]; then
+  local violations_local=()
+  local lineno=0
+  while IFS= read -r line; do
+    lineno=$((lineno + 1))
+    case "$line" in \#*) continue ;; esac
+    local stripped="${line%%#*}"
+    set +e
+    printf '%s' "$stripped" | grep -qE -e "$pattern"
+    local rc=$?
+    set -e
+    if [ $rc -ge 2 ]; then
+      printf '\033[31m[ERROR]\033[0m %s — grep failure (rc=%s)\n' "$name" "$rc" >&2
+      exit 2
+    fi
+    if [ $rc -eq 0 ]; then
+      violations_local+=("${lineno}: ${line}")
+    fi
+  done < "$TARGET"
+  if [ ${#violations_local[@]} -gt 0 ]; then
     printf '\033[31m[FAIL]\033[0m %s\n' "$name"
     printf '       %s\n' "$message"
-    while IFS= read -r line; do printf '       %s\n' "$line"; done <<< "$match"
+    for v in "${violations_local[@]}"; do printf '       %s\n' "$v"; done
     VIOLATIONS=$((VIOLATIONS + 1))
   else
     printf '\033[32m[PASS]\033[0m %s\n' "$name"
@@ -119,9 +129,42 @@ fail_if_match "#1. BSD sed / grep 互換 (\\\\s / \\\\t / \\\\d 不使用 + grep
 # #2. BSD sed -i: 推奨は sed -i.bak (両対応 / canonical)
 # canonical PASS 形: sed -i.<ext> (拡張子と空白なしで連結)
 # NG: sed -i (GNU 専用) / sed -i '' (BSD 専用) / sed -i .bak (space 区切り) / sed -i'' (空文字)
-fail_if_match "#2. sed -i は -i.bak 形式 canonical (両対応 / GNU 専用 / BSD 専用 / space 区切り NG)" \
-  "(^|[^[:alnum:]])sed[[:space:]]+-i([[:space:]]+([^.[:space:]]|$|'')|''([[:space:]]|$))" \
-  'sed -i 直後に「.<拡張子>」を空白なしで連結する canonical を採用。sed -i.bak ... && rm -f file.bak'
+# 専用関数で token 単位に検査 (regex の限界を回避)
+check_sed_inplace() {
+  local name="#2. sed -i は -i.bak 形式 canonical (両対応 / GNU 専用 / BSD 専用 / space 区切り NG)"
+  local message='sed -i 直後に「.<拡張子>」を空白なしで連結する canonical を採用。sed -i.bak ... && rm -f file.bak'
+  local violations_local=()
+  local lineno=0
+  while IFS= read -r line; do
+    lineno=$((lineno + 1))
+    case "$line" in \#*) continue ;; esac
+    local stripped="${line%%#*}"
+    # `sed -i<X>` の <X> を抽出 (単一空白後の token または直結 token)
+    if [[ "$stripped" =~ (^|[^[:alnum:]])sed[[:space:]]+(-i[^[:space:]]*) ]]; then
+      local arg="${BASH_REMATCH[2]}"
+      case "$arg" in
+        -i.[!.\ ]*)
+          : # PASS: -i.<ext>
+          ;;
+        *)
+          violations_local+=("${lineno}: ${line}    [arg='${arg}']")
+          ;;
+      esac
+    elif [[ "$stripped" =~ (^|[^[:alnum:]])sed[[:space:]]+-i[[:space:]]+ ]]; then
+      # `sed -i ` の後に space 区切り arg が来るパターン (NG: BSD 専用 '' / space 区切り .bak)
+      violations_local+=("${lineno}: ${line}    [space 区切りまたは空文字 -i]")
+    fi
+  done < "$TARGET"
+  if [ ${#violations_local[@]} -gt 0 ]; then
+    printf '\033[31m[FAIL]\033[0m %s\n' "$name"
+    printf '       %s\n' "$message"
+    for v in "${violations_local[@]}"; do printf '       %s\n' "$v"; done
+    VIOLATIONS=$((VIOLATIONS + 1))
+  else
+    printf '\033[32m[PASS]\033[0m %s\n' "$name"
+  fi
+}
+check_sed_inplace
 
 # #3. zsh nomatch: *.{...,...} (大文字小文字 / 拡張子 . 含む全パターン)
 fail_if_match "#3. zsh brace 展開を避ける" \
@@ -136,7 +179,10 @@ fail_if_match "#4. git diff の base/target は動く ref を避け SHA 固定" 
 
 # 行頭実行コマンドの prefix: 空白 / $ / # / env 変数代入 / command substitution 内
 # 例: `npm run dev` / `$ npm run dev` / `# npm run dev` / `NODE_ENV=foo npm run dev` / `HTTP_CODE=$(curl ...)`
-EXEC_PREFIX='^[[:space:]]*([$#][[:space:]]+)?(([A-Z][A-Z0-9_]*=[^[:space:]]*[[:space:]]+)*|env[[:space:]]+([A-Z][A-Z0-9_]*=[^[:space:]]*[[:space:]]+)+|[A-Z][A-Z0-9_]+=\$\([[:space:]]*)?'
+# 行頭実行コマンドの prefix: 空白 / $ プロンプト / env 変数代入 / quoted/unquoted command substitution
+# 例: `npm run dev` / `$ npm run dev` / `NODE_ENV=foo npm run dev` / `HTTP_CODE=$(curl ...)` / `HTTP_CODE="$(curl ...)"`
+# 注: `# ` プロンプトは markdown 内の他形式と紛らわしいため受け付けない
+EXEC_PREFIX='^[[:space:]]*(\$[[:space:]]+)?(([A-Z][A-Z0-9_]*=[^[:space:]]*[[:space:]]+)*|env[[:space:]]+([A-Z][A-Z0-9_]*=[^[:space:]]*[[:space:]]+)+|[A-Z][A-Z0-9_]+="?\$\([[:space:]]*)?'
 
 # #5. port pin: npm run dev (PORT pin / --port なし)
 fail_if_command_missing_option "#5. PORT pin (npm run dev に PORT 指定)" \
@@ -151,15 +197,16 @@ fail_if_command_missing_option "#6. curl で status code 取得 (-w / --write-ou
   'curl で status code を %{http_code} で取得していない (-w や --write-out を使う)'
 
 # #10. 秘密値の表示 / 漏洩パターン
-# 検出対象: 行頭コマンドとしての (a) echo "$VAR" / "KEY=$VAR" / (b) cat .env* / (c) printenv / (d) env (assignment なし)
+# 検出対象: 行頭コマンドとしての (a) echo $VAR / "$VAR" / "${VAR}" / "KEY=$VAR" / "KEY=${VAR}" / (b) cat .env* / (c) printenv / (d) env (引数なし or pipe)
 # 除外: printf '%s' "$VAR" | (vercel|op|aws|gcloud) は #11 推奨形なので除外
-fail_if_match "#10. 秘密値を echo / 表示しない (cat .env / printenv / env)" \
-  '^[[:space:]]*([$#][[:space:]]+)?(echo[[:space:]]+("[^"]*\$[A-Z_]|[A-Z][A-Z0-9_]*=\$)|cat[[:space:]]+\.env|printenv([[:space:]]|$)|env[[:space:]]*$)' \
-  'echo "$VAR" / echo "KEY=$VAR" / cat .env* / printenv / env (引数なし) は秘密値漏洩リスク。[ -n "$VAR" ] で有無判定 / printf '\''%s'\'' "$VALUE" | <env コマンド> で投入'
+fail_if_match "#10. 秘密値を echo / 表示しない (cat .env / printenv / env / braced 変数も検出)" \
+  '^[[:space:]]*\$?[[:space:]]*(echo[[:space:]]+([^|]*[\"]?[A-Z][A-Z0-9_]*=)?[\"]?\$\{?[A-Z_][A-Z0-9_]*\}?|cat[[:space:]]+\.env|printenv([[:space:]]|$)|env[[:space:]]*(\||$|>))' \
+  'echo $VAR / "$VAR" / "${VAR}" / "KEY=$VAR" / cat .env* / printenv / env (引数なし) は秘密値漏洩リスク。[ -n "$VAR" ] で有無判定 / printf '\''%s'\'' "$VALUE" | <env コマンド> で投入'
 
 # #11. env 投入は printf %s (echo NG / printf %s OK)
-fail_if_match "#11. env 投入は printf %s (echo 末尾改行混入回避)" \
-  '^[[:space:]]*([$#][[:space:]]+)?echo[[:space:]]+"\$[A-Z_][A-Z0-9_]*"[[:space:]]*\|[[:space:]]*(vercel|op|aws|gcloud)' \
+# braced 変数 ${VAR} も検出
+fail_if_match "#11. env 投入は printf %s (echo 末尾改行混入回避 / braced 変数も検出)" \
+  '^[[:space:]]*\$?[[:space:]]*echo[[:space:]]+["]?\$\{?[A-Z_][A-Z0-9_]*\}?["]?[[:space:]]*\|[[:space:]]*(vercel|op|aws|gcloud)' \
   'echo は末尾に \\n を付与してキー破損。printf '\''%s'\'' "$VALUE" | <env コマンド> を使用'
 
 # #12. codex は -s read-only (sandbox 明示)
@@ -168,16 +215,54 @@ fail_if_command_missing_option "#12. codex exec / review は -s read-only で投
   '(-s[[:space:]=]+read-only|--sandbox[[:space:]=]+read-only)' \
   'codex 実行時に -s read-only / --sandbox read-only が明示されていない (書き込み許可で監査すると差分汚染)'
 
-# #14. cwd 絶対パス: cd / git -C の引数が許可 prefix 以外を FAIL
-# 許可: /abs / $HOME / ${HOME} / $PWD / ${PWD} / "$HOME/..." / "/abs"
+# #14. cwd 絶対パス: cd / git -C の引数が許可 prefix 以外を FAIL (allowlist 方式)
+# 許可: /abs / $HOME / ${HOME} / $PWD / ${PWD} (quote 有無問わず)
 # NG: cd ./repo / cd ../repo / cd ~/repo / cd repo / git -C "./repo" / git -C "$PROJECT_DIR" (任意変数)
-fail_if_match '#14. cd / git -C は絶対パス ($HOME / $PWD / /abs 以外 NG)' \
-  '(^|[^[:alnum:]])(cd|git[[:space:]]+-C)[[:space:]]+("?(\.{1,2}/|~/|[a-zA-Z][a-zA-Z0-9_./-]*[a-zA-Z0-9])"?|"?\$\{?[A-Z][A-Z0-9_]*\}?(/|"?$))' \
-  '相対パス / ~/ / 任意変数禁止。/abs/path or "$HOME/..." or "$PWD/..." を使用 (~/foo は quote 内で展開されないため避ける)'
+check_cwd_allowlist() {
+  local name='#14. cd / git -C は絶対パス ($HOME / $PWD / /abs 以外 NG)'
+  local message='相対パス / ~/ / $HOME・$PWD 以外の変数禁止。/abs/path or "$HOME/..." or "$PWD/..." を使用'
+  local violations_local=()
+  local lineno=0
+  while IFS= read -r line; do
+    lineno=$((lineno + 1))
+    case "$line" in \#*) continue ;; esac
+    local stripped="${line%%#*}"
+
+    # cd / git -C の各引数を抽出 (簡易: 各出現で 1 つ目の引数のみ)
+    local rest="$stripped"
+    while [[ "$rest" =~ (^|[^[:alnum:]])(cd|git[[:space:]]+-C)[[:space:]]+([^[:space:]]+) ]]; do
+      local arg="${BASH_REMATCH[3]}"
+      rest="${rest#*${BASH_REMATCH[0]}}"
+      # quote 剥がし
+      arg="${arg#\"}"
+      arg="${arg%\"}"
+      arg="${arg#\'}"
+      arg="${arg%\'}"
+      # allowlist 判定
+      case "$arg" in
+        /*|\$HOME|\$HOME/*|\$\{HOME\}|\$\{HOME\}/*|\$PWD|\$PWD/*|\$\{PWD\}|\$\{PWD\}/*)
+          : # 許可
+          ;;
+        *)
+          violations_local+=("${lineno}: ${line}    [arg='${arg}']")
+          ;;
+      esac
+    done
+  done < "$TARGET"
+  if [ ${#violations_local[@]} -gt 0 ]; then
+    printf '\033[31m[FAIL]\033[0m %s\n' "$name"
+    printf '       %s\n' "$message"
+    for v in "${violations_local[@]}"; do printf '       %s\n' "$v"; done
+    VIOLATIONS=$((VIOLATIONS + 1))
+  else
+    printf '\033[32m[PASS]\033[0m %s\n' "$name"
+  fi
+}
+check_cwd_allowlist
 
 echo
 if [ "$VIOLATIONS" -eq 0 ]; then
-  printf '\033[32m✅ 自動チェック PASS。残り 4 項目 (#7 next-env.d.ts gitignore / #8 dotenv 4 ファイル / #9 .env.local tracked / #13 heredoc quoted) は目視確認してください\033[0m\n'
+  printf '\033[32m✅ 自動チェック PASS。残り 4 項目を目視確認: #7 next-env.d.ts gitignore (Next.js のみ / 非該当なら N/A) / #8 dotenv 4 load slot + 6 表記 (Next.js のみ / 非該当なら N/A) / #9 .env.local tracked (Next.js のみ / 非該当なら N/A) / #13 heredoc quoted (全プロジェクト)\033[0m\n'
   exit 0
 else
   printf '\033[31m❌ %d 項目で違反検出 — 修正してください\033[0m\n' "$VIOLATIONS"

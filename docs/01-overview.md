@@ -23,17 +23,24 @@
 
 ## docs マップ — どこを読むか
 
-利用者の状況によって読むべき場所が変わります:
+利用者の状況によって読むべき場所が変わります (docs/05 §適用範囲表を正本とする):
 
 | 状況 | 必読 (コア) | 状況に応じた adapter |
 |---|---|---|
-| ランブック (静的文書 / 教材 / 仕様書) を Codex で監査したい | docs/02 / 03 (Fix 1-4) / 04 / 07/manual | docs/05 #1-4/14 (shell 互換系) |
-| Next.js プロジェクトの実装監査 | docs/02 / 03 (Fix 1-4) / 04 / 07/code | docs/03 Fix 5 (dotenv) / 05 全 14 項目 / 06 (dev bypass) |
-| Python / Go / Rails / 他フレームワーク pipeline | docs/02 / 03 (Fix 1-4 + Fix 6) / 04 / 07/code | docs/05 #1-4/14 のみ (#5/7/8/9 は Next.js 固有なので要 adapter 開発) |
+| ランブック (静的文書 / 教材 / 仕様書) を Codex で監査したい | docs/02 / docs/03 Fix 1, 3, 4 / docs/04 / [docs/07-runbook-templates/manual-audit-runbook.md](07-runbook-templates/manual-audit-runbook.md) | docs/05 コア中立項目 (#1/#2/#3/#4/#6/#10/#11/#13/#14) + #12 (Codex CLI 利用者全員) |
+| コードベース (Whisper pipeline / アプリ実装等) を Codex で監査したい | docs/02 / docs/03 Fix 1, 3, 4, **6** / docs/04 / [docs/07-runbook-templates/code-audit-runbook.md](07-runbook-templates/code-audit-runbook.md) | docs/05 同上 + Web UI 検証あれば docs/03 Fix 2 |
+| Next.js プロジェクトの実装監査 | 上記コードベース監査 | docs/03 Fix 5 (Next.js dotenv adapter) + docs/05 #5 (Node.js adapter) + #7/#8/#9 (Next.js adapter) + docs/06 (Next.js + 自前 auth adapter) |
+| Python / Go / Rails / 他フレームワーク pipeline | 上記コードベース監査 | docs/05 コア中立 + #12 のみ (#5 は Node.js 固有 / #7-9 は Next.js 固有 / docs/06 は Next.js + 自前 auth 固有 → 他 framework は adapter 未整備、[CONTRIBUTING.md](../CONTRIBUTING.md) で募集中) |
 | ツールキット内部仕組みを理解したい | docs/01-08 全部 | examples/ 全部 |
 
-**コア** (フレームワーク中立) = docs/02 / docs/03 Fix 1-4 + Fix 6 / docs/04 / docs/07 (テンプレ自体)
-**Adapter** (環境固有) = docs/03 Fix 5 (Next.js dotenv) / docs/05 #5/7/8/9/12 (Next.js + Codex CLI) / docs/06 (Next.js + 自前 auth)
+**コア (フレームワーク中立 + Codex CLI 利用者全員)**:
+- docs/02 (五月雨防止) / docs/03 Fix 1, 3, 4, 6 / docs/04 (収束判定) / docs/07-runbook-templates/ テンプレ自体
+- docs/05 コア中立 = #1/#2/#3/#4/#6/#10/#11/#13/#14 / コア (Codex CLI 固有) = #12
+
+**Adapter (環境固有)**:
+- docs/03 Fix 2 (Web UI / DOM 検証 adapter) / Fix 5 (Next.js dotenv adapter)
+- docs/05 #5 (Node.js adapter) / #7/#8/#9 (Next.js adapter)
+- docs/06 (Next.js + 自前 auth adapter)
 
 ## 監査の 2 系統 (ランブック監査 / コードベース監査)
 
@@ -42,7 +49,9 @@
 | 系統 | 監査対象 | 1 ラウンドの単位 | 推奨 model | 重点となる事前準備 | 代表例 |
 |---|---|---|---|---|---|
 | **ランブック監査** | 静的文書 (教材 / 監査ランブック / 仕様書) | **1 ファイル** (`docs/foo.md`) | `gpt-5.5 xhigh` | 環境系 lint 14 項目撲滅 ([`docs/05`](05-env-lint-checklist.md)) | Workshop 4R / SIFT 13R |
-| **コードベース監査** | 実装コード (パイプライン / アプリ全体 / 大規模 codebase) | **1 commit** (リポ全体 / 複数ファイル) | `gpt-5.4 xhigh` (gpt-5.5 xhigh は 19 分超の hang リスクあり) | 横断 6 観点 ULTRATHINK ([`docs/03 Fix 6`](03-five-decisive-fixes.md#fix-6-反復監査の-1-周目で横断-6-観点-ultrathink-を全部洗う)) | video-subtitler 5R |
+| **コードベース監査** | 実装コード (パイプライン / アプリ全体 / 大規模 codebase) | **1 commit** (リポ全体 / 複数ファイル) | `gpt-5.4 xhigh` (video-subtitler 1 ケースで `gpt-5.5 xhigh` の 19 分超 hang を観測 / 根本原因未特定) | 横断 6 観点 ULTRATHINK ([`docs/03 Fix 6`](03-five-decisive-fixes.md#fix-6-反復監査の-1-周目で横断-6-観点-ultrathink-を全部洗う)) | video-subtitler 5R |
+
+> **モデル選択は N=各 1-2 ケースから抽出した仮説**。コードベース監査の `gpt-5.5 xhigh` hang は video-subtitler 1 例での観察で根本原因未特定。他 framework / 他コードベースでの汎化は要検証。
 
 ### コードベース監査のための追加運用
 
@@ -98,7 +107,7 @@
 ## 次に読むべき文書
 
 1. [`02-anti-drip-prompt-v2.md`](02-anti-drip-prompt-v2.md) — 五月雨防止プロンプト v2 の本文
-2. [`03-five-decisive-fixes.md`](03-five-decisive-fixes.md) — 5 つの決定的対策の実装
+2. [`03-five-decisive-fixes.md`](03-five-decisive-fixes.md) — 6 つの決定的対策 (コア 4 + adapter 2) の実装
 3. [`04-convergence-patterns.md`](04-convergence-patterns.md) — 収束判定基準
 4. [`05-env-lint-checklist.md`](05-env-lint-checklist.md) — 環境系 lint 14 項目 (事前撲滅)
 

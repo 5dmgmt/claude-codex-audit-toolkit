@@ -134,7 +134,7 @@ dotenv 行表記の 6 パターン (検査対象):
 | `# KEY=value` | コメント (無視) |
 | `export KEY=value` | shell 互換 (Next.js は `export` を strip) |
 
-詳細は [`03-five-decisive-fixes.md` Fix 5](03-five-decisive-fixes.md#fix-5-dotenv-全表記対応--nextjs-全-env-4-ファイル) 参照。
+詳細は [`03-five-decisive-fixes.md` Fix 5](03-five-decisive-fixes.md#fix-5-dotenv-全表記対応--nextjs-の-load-slot) 参照 (Next.js adapter)。
 
 ### 9. .env.local のコミット禁止
 
@@ -255,5 +255,5 @@ Terminal B: cd "$HOME/Plugins/aifcc-workshop"        # 教材修正
 
 ## 関連文書
 
-- [`03-five-decisive-fixes.md`](03-five-decisive-fixes.md) — 5 つの決定的対策 (構造系)
+- [`03-five-decisive-fixes.md`](03-five-decisive-fixes.md) — 6 つの決定的対策 (コア 4 + adapter 2)
 - [`scripts/env-lint-check.sh`](../scripts/env-lint-check.sh) — 自動チェックスクリプト

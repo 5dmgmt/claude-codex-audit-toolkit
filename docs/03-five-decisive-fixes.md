@@ -13,7 +13,7 @@
 | Fix 3: 独立ブロック変数 fail-fast | **コア (中立)** | 全プロジェクト (shell スニペット品質) | SIFT 13R / Workshop 4R 共通 |
 | Fix 4: BSD sed / grep 互換 | **コア (中立)** | macOS + Linux 両対応の shell スニペットを書く全プロジェクト | SIFT 13R で確立 |
 | Fix 5: dotenv 全表記対応 + load slot | **adapter (Next.js 固有)** | Next.js プロジェクト | SIFT / Workshop は Next.js 16 |
-| Fix 6: 横断 6 観点 ULTRATHINK | **adapter (Code review 寄り)** | コードベース監査 (ランブックでも一部適用可) | video-subtitler 5R (Fix 6 不在で五月雨式運用になった反省) |
+| Fix 6: 横断 6 観点 ULTRATHINK | **コア (中立)** — コードベース監査で必須 / ランブック監査でも該当観点を適用 | コードベース監査全般 + ランブック監査の一部観点 | video-subtitler 5R (Fix 6 不在で五月雨式運用になった反省) |
 
 > **N=1 の注意**: Fix 5 (Next.js dotenv) は SIFT/Workshop の 2 ケース、Fix 6 (横断 6 観点) は video-subtitler の 1 ケースから抽出した仮説です。他の framework / 他のコードベースでの汎化は要検証。Rails / Django / Go 等の adapter を別途定義する余地があります ([CONTRIBUTING.md](../CONTRIBUTING.md) 参照)。
 
@@ -251,16 +251,16 @@ video-subtitler では Fix 6 (= ULTRATHINK 6 観点) を **適用しなかった
 
 ### 6 fixes と docs/05 環境系 lint 14 項目の対応関係
 
-Fix 1-5 は **構造系** (commit pin / canonical baseline / fail-fast / shell 互換 / dotenv) で、docs/05 14 項目は **環境系の機械検出可能パターン**。Fix 6 は **横断観点 ULTRATHINK**。重複と補完関係:
+Fix 1-5 は **構造系**、docs/05 14 項目は **環境系の機械検出可能パターン**、Fix 6 は **横断観点 ULTRATHINK** (予防的設計レビュー)。docs/05 §適用範囲表の階層分類と一致させた対応:
 
-| Fix | docs/05 14 項目との関係 |
-|---|---|
-| Fix 1 commit pin | 14 項目 #4 (git diff SHA pin) と部分重複 / 14 項目 #12 (codex sandbox) と運用文脈で関連 |
-| Fix 2 canonical baseline | 14 項目には対応なし (構造系 / paste 検証固有) |
-| Fix 3 独立変数 fail-fast | 14 項目には対応なし (構造系 / shell スニペット品質) |
-| Fix 4 BSD sed 互換 | 14 項目 #1 (BSD sed/grep) と #2 (sed -i) を canonical 形に統一 |
-| Fix 5 dotenv 全表記 | 14 項目 #8 (dotenv 4 load slot + 6 表記) を実効値優先順位含めて拡張 |
-| Fix 6 横断 6 観点 ULTRATHINK | 14 項目とは別軸 (機械検出ではなく予防的設計レビュー) |
+| Fix | 階層 | docs/05 14 項目との関係 |
+|---|---|---|
+| Fix 1 commit pin | コア中立 | #4 (git diff SHA pin) と部分重複 / #12 (codex sandbox) と運用文脈で関連 |
+| Fix 2 canonical baseline | コア (Web UI 検証あれば) | 14 項目には対応なし (構造系 / paste 検証固有) |
+| Fix 3 独立変数 fail-fast | コア中立 | 14 項目には対応なし (構造系 / shell スニペット品質) |
+| Fix 4 BSD sed 互換 | コア中立 | #1 (BSD sed/grep) と #2 (sed -i.bak canonical) と直接対応 |
+| Fix 5 dotenv 全表記 | **Next.js adapter** | #8 (Next.js adapter / dotenv 4 load slot + 6 表記) を実効値優先順位含めて拡張 |
+| Fix 6 横断 6 観点 ULTRATHINK | コア中立 | 14 項目とは別軸 (機械検出ではなく予防的設計レビュー) |
 
 **Fix 1-5 + 14 項目だけでは Fix 6 の予防的観点が抜けます**。コード監査では Fix 6 が必須、ランブック監査でも該当する観点 (主にデータフロー整合性 / 例外伝播 / エッジケース) は適用すべきです。
 
