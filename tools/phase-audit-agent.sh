@@ -120,7 +120,35 @@ while [ "$round" -le "$MAX_ROUNDS" ]; do
   ROUND_OUTPUT="${OUTPUT_DIR}/${OUTPUT_PREFIX}-r${round}.md"
   ROUND_LOG="${OUTPUT_DIR}/${OUTPUT_PREFIX}-r${round}.log"
 
-  PROMPT="${RUNBOOK_FILE} を読み、commit ${TARGET_SHA} の snapshot として Phase ${PHASE_ID} (file: ${PHASE_FILE}) の R${round} 監査。Fix 6 横断 6 観点 ULTRATHINK を Next.js + Supabase 文脈で適用。Critical/High/Medium/Low に分類。Critical/High が無ければ明示。"
+  PROMPT=$(cat <<EOF
+${RUNBOOK_FILE} を読み、commit ${TARGET_SHA} の snapshot として Phase ${PHASE_ID} (file: ${PHASE_FILE}) の R${round} 監査を実施。**5 軸レビュー (正確性 / 可読性 / アーキテクチャ / セキュリティ / パフォーマンス)** を Next.js + Supabase 文脈で ULTRATHINK 適用すること。各軸で必ず 1 件以上は確認し、該当なしなら明示すること。
+
+【5 軸の観点】
+
+1. **[正確性] (Correctness)**: モデル名・SDK バージョン・URL・公式仕様・価格・引用が **2026 時点で現役**か。具体的な deprecated 例:
+   - OpenAI: GPT-4 / GPT-4-Turbo / GPT-4o / GPT-4o-mini / GPT-3.5 / text-davinci-003 / Codex (古い) → GPT-5.5 / GPT-5 / GPT-5-mini が現役
+   - Anthropic: Claude 2 / Claude 3 / Sonnet 3.5 / Sonnet 3.7 / Sonnet 4.5 / Opus (無印) / Haiku 3 → Opus 4.7 / Sonnet 4.6 / Haiku 4.5 が現役
+   - Next.js: 13 / 14 / 15 / Pages Router → Next.js 16 + App Router が現役
+   - Node.js: 18 (deprecated) / 20 → 22 / 24 LTS が現役
+   - Supabase: 旧 anon/service_role key → sb_publishable_/sb_secret_ プレフィックスが現役
+   - Vercel: Vercel Postgres / Vercel KV (廃止) / Edge Functions (非推奨) / vercel.json (推奨は vercel.ts) / 旧 default timeout 60s → 300s
+   - その他: 旧 API endpoint / 旧 docs URL / 古い price / npm package の deprecated 警告 / 公式 docs と乖離した記述
+
+2. **[可読性] (Readability)**: 受講者 (経営者) が学習効率良く読めるか。用語の整合 / 段階的誘導 / 矛盾 / 冗長性 / 図示の必要性 / 業務文脈との結びつき。
+
+3. **[アーキテクチャ] (Architecture)**: 構造的妥当性。層境界 / 依存関係 / SoC / 抽象化レベル / 拡張性 / 命名 / 責務分離 / Phase 間の前提継承。
+
+4. **[セキュリティ] (Security)**: Fix 6 横断 6 観点 (RLS / OAuth cookie / secret 管理 / prompt injection / PII redact / supply-chain) + op:// reference / atomic + Negative test / 漏洩時停止条件 / 既存境界保持 chain。
+
+5. **[パフォーマンス] (Performance)**: コスト (API 課金 / トークン量 / モデル使い分け) / レート (rate limit / per-user / per-workspace) / Core Web Vitals (LCP/INP/CLS) / N+1 / cache / bundle size / cold start / メモリ / バッチ化 / streaming.
+
+【出力規則】
+- 各 finding は **冒頭に軸タグ [正確性] [可読性] [アーキテクチャ] [セキュリティ] [パフォーマンス]** を付与し、severity (Critical / High / Medium / Low) と file:line を併記
+  形式例: [High] [正確性] [app/foo/phase40401.ts:31] GPT-4o は 2026-04 時点で deprecated
+- Critical/High が無い場合は明示すること
+- **最終行は必ず: [総合判定: Critical×N + High×N + Medium×N + Low×N]** (既存の集計 grep 互換のため厳守)
+EOF
+)
 
   if ! run_with_timeout "$TIMEOUT_SEC" codex exec -s read-only -m "$MODEL" -c "model_reasoning_effort=$REASONING" \
     --skip-git-repo-check \
