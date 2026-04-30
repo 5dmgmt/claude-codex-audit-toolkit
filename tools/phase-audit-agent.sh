@@ -133,6 +133,7 @@ ${RUNBOOK_FILE} を読み、commit ${TARGET_SHA} の snapshot として Phase ${
    - Supabase: 旧 anon/service_role key → sb_publishable_/sb_secret_ プレフィックスが現役
    - Vercel: Vercel Postgres / Vercel KV (廃止) / Edge Functions (非推奨) / vercel.json (推奨は vercel.ts) / 旧 default timeout 60s → 300s
    - その他: 旧 API endpoint / 旧 docs URL / 古い price / npm package の deprecated 警告 / 公式 docs と乖離した記述
+   - 教材コンテンツ: 心理学・経営学・学術用語や理論の現役性 (denounced 理論名 / 旧称 / 改名された概念) / 引用書籍の絶版・改訂版差分 / 統計データの年度陳腐化 / 参照 URL の生死 (link rot) / 業界用語の変遷 / 法令・規制の改正反映
 
 2. **[可読性] (Readability)**: 受講者 (経営者) が学習効率良く読めるか。用語の整合 / 段階的誘導 / 矛盾 / 冗長性 / 図示の必要性 / 業務文脈との結びつき。
 
